@@ -44,11 +44,31 @@ namespace RamenTycoon.Player
 
         void Update()
         {
+            if (RamenTycoon.Core.InputGate.GameplayBlocked)
+            {
+                Current?.SetHighlighted(false);
+                Current = null;
+                return;
+            }
+
             UpdateTarget();
 
-            if (interactAction.WasPressedThisFrame() && Current != null && Current.CanInteract(hand))
+            if (interactAction.WasPressedThisFrame())
             {
-                Current.Interact(hand);
+                if (Current == null)
+                {
+                    Debug.Log("[Interact] 앞에 상호작용할 대상이 없어요 (스테이션 쪽을 바라보고 가까이 가세요)");
+                }
+                else if (Current.CanInteract(hand))
+                {
+                    Current.Interact(hand);
+                }
+                else
+                {
+                    string hint = Current is Station st ? st.GetHint(hand) : null;
+                    Debug.Log($"[Interact] {((Component)Current).name}: {hint ?? "지금은 상호작용할 수 없어요"}");
+                    if (!string.IsNullOrEmpty(hint)) RamenTycoon.UI.FloatingHint.Show(hint);
+                }
             }
         }
 
@@ -58,14 +78,16 @@ namespace RamenTycoon.Player
             hits.Clear();
             Physics2D.OverlapCircle(origin, probeRadius, filter, hits);
 
-            IInteractable best = null;
-            float bestScore = float.MaxValue;
+            // 손에 든 것으로 실제 상호작용할 수 있는 대상을 우선 고른다 (붙어 있는 스테이션 사이에서 헷갈리지 않게)
+            IInteractable best = null, bestUsable = null;
+            float bestScore = float.MaxValue, bestUsableScore = float.MaxValue;
 
             foreach (var col in hits)
             {
                 if (col.attachedRigidbody != null && col.attachedRigidbody.gameObject == gameObject) continue;
                 var target = col.GetComponentInParent<IInteractable>();
                 if (target == null) continue;
+                if (target is Behaviour b && !b.isActiveAndEnabled) continue; // 잠긴 스테이션
 
                 Vector2 toTarget = (Vector2)col.bounds.center - (Vector2)transform.position;
                 float dot = Vector2.Dot(controller.Facing, toTarget.normalized);
@@ -76,7 +98,13 @@ namespace RamenTycoon.Player
                     bestScore = score;
                     best = target;
                 }
+                if (score < bestUsableScore && target.CanInteract(hand))
+                {
+                    bestUsableScore = score;
+                    bestUsable = target;
+                }
             }
+            if (bestUsable != null) best = bestUsable;
 
             if (!ReferenceEquals(best, Current))
             {

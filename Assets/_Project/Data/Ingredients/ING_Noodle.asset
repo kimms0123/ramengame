@@ -19,3 +19,4 @@ MonoBehaviour:
   decoSprite: {fileID: 0}
   placeholderColor: {r: 1, g: 0.9, b: 0.45, a: 1}
   cost: 0
+  menuPrice: 0

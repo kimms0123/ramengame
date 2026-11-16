@@ -30,12 +30,12 @@ namespace RamenTycoon.EditorTools
             }
 
             // 1. 서빙 카운터 제거
-            var serve = Object.FindFirstObjectByType<ServeCounter>();
+            var serve = Object.FindAnyObjectByType<ServeCounter>();
             if (serve != null) Undo.DestroyObjectImmediate(serve.gameObject);
 
             // 2. 테이블 위치 표시(TableMarker_N) 수집 후 제거
             var positions = new System.Collections.Generic.List<Vector2>();
-            foreach (var sr in Object.FindObjectsByType<SpriteRenderer>(FindObjectsSortMode.None))
+            foreach (var sr in Object.FindObjectsByType<SpriteRenderer>())
             {
                 if (!sr.gameObject.name.StartsWith("TableMarker_")) continue;
                 positions.Add(sr.transform.position);

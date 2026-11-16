@@ -4,17 +4,15 @@ using UnityEngine;
 namespace RamenTycoon.Kitchen
 {
     /// <summary>
-    /// 들 수 있는 물건을 생성한다. M1에서는 네모 플레이스홀더로 만들고,
-    /// 아트가 나오면 프리팹 참조로 바꾸고 M2에서 오브젝트 풀링을 붙인다.
+    /// 들 수 있는 물건을 생성한다. 이미지는 각 아이템이 GameArtConfig / IngredientData에서 직접 가져온다.
     /// </summary>
     public class ItemFactory : MonoBehaviour
     {
         public static ItemFactory Instance { get; private set; }
 
+        [Tooltip("이미지가 없을 때 쓰는 흰 네모")]
         [SerializeField] Sprite placeholderSprite;
-        [SerializeField] float ingredientScale = 0.45f;
-        [SerializeField] float bowlScale = 0.55f;
-        [SerializeField] int itemSortingOrder = 5;
+        [SerializeField] int itemSortingOrder = 50;
 
         void Awake()
         {
@@ -24,13 +22,17 @@ namespace RamenTycoon.Kitchen
                 return;
             }
             Instance = this;
+
+            if (placeholderSprite == null)
+            {
+                var tex = Texture2D.whiteTexture;
+                placeholderSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), tex.width);
+            }
         }
 
         public IngredientItem CreateIngredient(IngredientData data)
         {
-            bool hasArt = data.icon != null;
-            var go = CreateBase(data.displayName, hasArt ? data.icon : placeholderSprite,
-                hasArt ? Color.white : data.placeholderColor, ingredientScale);
+            var go = CreateBase(data.displayName);
             var item = go.AddComponent<IngredientItem>();
             item.Init(data);
             return item;
@@ -38,18 +40,16 @@ namespace RamenTycoon.Kitchen
 
         public Bowl CreateBowl()
         {
-            var go = CreateBase("Bowl", placeholderSprite, Color.white, bowlScale);
+            var go = CreateBase("Bowl");
             return go.AddComponent<Bowl>();
         }
 
-        GameObject CreateBase(string itemName, Sprite sprite, Color color, float scale)
+        GameObject CreateBase(string itemName)
         {
             var go = new GameObject(itemName);
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = sprite;
-            sr.color = color;
+            sr.sprite = placeholderSprite;
             sr.sortingOrder = itemSortingOrder;
-            go.transform.localScale = Vector3.one * scale;
             return go;
         }
 

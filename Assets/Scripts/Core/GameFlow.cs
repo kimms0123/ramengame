@@ -6,24 +6,21 @@ namespace RamenTycoon.Core
     {
         Title,
         RoundStart,
-        DayPrep,      // 업그레이드 상점
+        DayPrep,      // 영업 준비 (시작 패널)
         Business,     // 영업
-        DaySettle,    // 하루 결산 + 자동 저장
-        RoundSettle,  // 월세 차감 + 엔딩 판정
+        DaySettle,    // 하루 정산
+        RoundSettle,  // 5일차 종료 후 빚 상환 + 엔딩 판정
         Ending
     }
 
     /// <summary>
-    /// 게임 전체 상태 머신. M1에서는 바로 Business로 시작한다.
-    /// M4에서 일차/라운드 진행과 엔딩 판정을 붙인다.
+    /// 게임 전체 상태 기록. 실제 진행은 DayManager가 하고, 여기서는 현재 상태/일차를 보관하고 이벤트를 알린다.
     /// </summary>
     public class GameFlow : MonoBehaviour
     {
         public static GameFlow Instance { get; private set; }
 
-        [SerializeField] GameState startState = GameState.Business;
-
-        public GameState State { get; private set; }
+        public GameState State { get; private set; } = GameState.Title;
         public int Round { get; private set; } = 1;
         public int Day { get; private set; } = 1;
 
@@ -39,13 +36,13 @@ namespace RamenTycoon.Core
             Instance = this;
         }
 
-        void Start() => ChangeState(startState);
+        public void SetDay(int day) => Day = Mathf.Max(1, day);
 
         public void ChangeState(GameState next)
         {
             State = next;
             GameEvents.RaiseStateChanged(next);
-            Debug.Log($"[GameFlow] {Round}라운드 {Day}일차 → {next}");
+            Debug.Log($"[GameFlow] {Day}일차 → {next}");
         }
 
         void OnDestroy()

@@ -9,44 +9,61 @@ namespace RamenTycoon.Logic
     public static class OrderJudge
     {
         /// <summary>
-        /// 0~1 정확도. 육수가 틀리면 0.
+        /// 0~1 정확도. 육수가 틀리거나 면이 없으면 0.
         /// 정확도 = 1 - (빠진 고명 수 + 초과/잘못 넣은 고명 수) / 필수 고명 수
         /// </summary>
-        public static float Accuracy(Order order, IngredientData servedBroth, IReadOnlyList<IngredientData> servedToppings)
+        public static float Accuracy(Order order, IngredientData servedBroth, bool hasNoodle,
+            IReadOnlyDictionary<IngredientData, int> servedToppings)
         {
-            if (servedBroth != order.Broth) return 0f;
-
-            var served = new Dictionary<IngredientData, int>();
-            foreach (var t in servedToppings)
-            {
-                served.TryGetValue(t, out int n);
-                served[t] = n + 1;
-            }
+            if (order == null || servedBroth != order.Broth || !hasNoodle) return 0f;
 
             int errors = 0;
             foreach (var kv in order.Toppings)
             {
-                served.TryGetValue(kv.Key, out int got);
+                int got = 0;
+                if (servedToppings != null) servedToppings.TryGetValue(kv.Key, out got);
                 errors += System.Math.Abs(kv.Value - got);
-                served.Remove(kv.Key);
             }
-            foreach (var kv in served) errors += kv.Value; // 주문에 없는 고명
+
+            if (servedToppings != null)
+            {
+                foreach (var kv in servedToppings)
+                {
+                    if (!order.Toppings.ContainsKey(kv.Key)) errors += kv.Value; // 주문에 없는 고명
+                }
+            }
 
             int required = System.Math.Max(1, order.RequiredToppingCount);
             float acc = 1f - (float)errors / required;
             return acc < 0f ? 0f : acc;
         }
 
-        /// <summary>
-        /// 손님 1명 점수(0~100). 가중치는 밸런싱하면서 조정한다.
-        /// </summary>
-        public static float CustomerScore(float waitSeconds, float patienceSeconds, float accuracy, float plating)
+        /// <summary>대기 점수 0~1 (빨리 낼수록 1)</summary>
+        public static float WaitScore(float waitSeconds, float patienceSeconds)
         {
-            float wait = patienceSeconds <= 0f ? 0f : 1f - waitSeconds / patienceSeconds;
-            if (wait < 0f) wait = 0f;
-            if (wait > 1f) wait = 1f;
+            if (patienceSeconds <= 0f) return 0f;
+            float w = 1f - waitSeconds / patienceSeconds;
+            return w < 0f ? 0f : (w > 1f ? 1f : w);
+        }
+
+        /// <summary>
+        /// 손님 1명 점수(0~100). 정확도가 0(육수 틀림)이면 0점.
+        /// </summary>
+        public static float CustomerScore(float waitSeconds, float patienceSeconds, float accuracy)
+        {
             if (accuracy <= 0f) return 0f;
-            return 100f * (0.5f * wait + 0.4f * accuracy + 0.1f * plating);
+            return 100f * (0.5f * WaitScore(waitSeconds, patienceSeconds) + 0.5f * accuracy);
+        }
+
+        /// <summary>
+        /// 받는 돈. 육수 틀림 → 0. 고명이 틀리면 정확도만큼 깎이고(최소 절반), 빨리 내면 팁.
+        /// </summary>
+        public static int Payment(int price, float accuracy, float waitScore, float maxTipRate)
+        {
+            if (accuracy <= 0f) return 0;
+            float basePay = price * (0.5f + 0.5f * accuracy);
+            float tip = accuracy >= 0.999f ? price * maxTipRate * waitScore : 0f;
+            return (int)System.Math.Round(basePay + tip);
         }
     }
 }

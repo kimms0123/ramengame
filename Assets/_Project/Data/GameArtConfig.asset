@@ -1,0 +1,87 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f719d8e7252d6845b2f338a1441bb55, type: 3}
+  m_Name: GameArtConfig
+  m_EditorClassIdentifier: Assembly-CSharp::RamenTycoon.Data.GameArtConfig
+  map: {fileID: 21300000, guid: fbe82dfe78f6b2d4e8fa2cc9f0859327, type: 3}
+  stove: {fileID: -3326557430243300366, guid: 0f2e286c466364347ac871a565abf0b2, type: 3}
+  sink: {fileID: 657193517335828509, guid: b9dccb77ec108ae408509605a22d3f92, type: 3}
+  sinkBowlStack: {fileID: 0}
+  brothUrnTonkotsu: {fileID: 8249789822515323462, guid: b21041e2af47502418befc4edd294a3e, type: 3}
+  brothUrnSpicy: {fileID: 1486174480520335349, guid: d2459d55f484a6f44a56168bcf1ef967, type: 3}
+  noodleBox: {fileID: -6316198400586498764, guid: 6477d2386d704494a80dc388d2cde3f5, type: 3}
+  toppingCounter: {fileID: 7030235827056967469, guid: dae786cbc432c6d4aa7e9852ec6c408a, type: 3}
+  table: {fileID: -4346793551103155523, guid: 3783550c70fa3834d84f8c8c9a4945f0, type: 3}
+  chair: {fileID: 0}
+  bowlClean: {fileID: 0}
+  bowlBrothTonkotsu: {fileID: 0}
+  bowlBrothSpicy: {fileID: 0}
+  bowlRamenTonkotsu: {fileID: 0}
+  bowlRamenSpicy: {fileID: 0}
+  bowlDirty: {fileID: 0}
+  potCooking: {fileID: 0}
+  potDone: {fileID: 0}
+  playerSprite: {fileID: 953851453, guid: 97168d67a31e7ae4c8c4ad4e8520965f, type: 3}
+  playerAnimator: {fileID: 9100000, guid: 2c92ad4a7df098740ab0cd9e7af0711d, type: 2}
+  customerSprites: []
+  customerAnimator: {fileID: 0}
+  toppingBackground: {fileID: 7114418947609066526, guid: 45f77ca1a9fad7541ba35010e4acfac8, type: 3}
+  decoBowlTonkotsu: {fileID: 0}
+  decoBowlSpicy: {fileID: 7971498871667320158, guid: e65fa268ec38a3e48982241cef19b9ff, type: 3}
+  bellSprite: {fileID: 0}
+  trashSprite: {fileID: 0}
+  toppingBinRects:
+  - serializedVersion: 2
+    x: 0.207
+    y: 0.188
+    width: 0.135
+    height: 0.227
+  - serializedVersion: 2
+    x: 0.357
+    y: 0.188
+    width: 0.138
+    height: 0.227
+  - serializedVersion: 2
+    x: 0.508
+    y: 0.188
+    width: 0.139
+    height: 0.227
+  - serializedVersion: 2
+    x: 0.659
+    y: 0.188
+    width: 0.141
+    height: 0.227
+  decoBowlRect:
+    serializedVersion: 2
+    x: 0.4
+    y: 0.47
+    width: 0.29
+    height: 0.5
+  memoRect:
+    serializedVersion: 2
+    x: 0.06
+    y: 0.48
+    width: 0.22
+    height: 0.46
+  speechBubble: {fileID: 0}
+  memoPaper: {fileID: 0}
+  hudPanel: {fileID: 0}
+  panelBackground: {fileID: 0}
+  buttonSprite: {fileID: 0}
+  coinIcon: {fileID: 0}
+  clockIcon: {fileID: 0}
+  heartIcon: {fileID: 0}
+  patienceBarBack: {fileID: 0}
+  patienceBarFill: {fileID: 0}
+  dirtyIcon: {fileID: 0}
+  eatingIcon: {fileID: 0}
+  uiFont: {fileID: 0}

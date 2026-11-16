@@ -11,6 +11,11 @@ namespace RamenTycoon.Kitchen
         {
             transform.SetParent(anchor, false);
             transform.localPosition = Vector3.zero;
+
+            // 내려놓은 스테이션/들고 있는 캐릭터보다 앞에 그려지게 한다
+            var mine = GetComponent<SpriteRenderer>();
+            var owner = anchor.parent != null ? anchor.parent.GetComponentInChildren<SpriteRenderer>() : null;
+            if (mine != null && owner != null && owner != mine) mine.sortingOrder = owner.sortingOrder + 3;
         }
 
         public void Detach()

@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65d58eaab8c56974ca68d8d3ad80fec4, type: 3}
   m_Name: ING_Broth_Tonkotsu
   m_EditorClassIdentifier: Assembly-CSharp::RamenTycoon.Data.IngredientData
-  id: broth_tonkotsu
-  displayName: "\uB3C8\uCF54\uCE20 \uC721\uC218"
+  id: tonkotsu
+  displayName: "\uB3C8\uCF54\uCE20"
   category: 0
   icon: {fileID: 0}
   decoSprite: {fileID: 0}
   placeholderColor: {r: 0.93, g: 0.85, b: 0.68, a: 1}
-  cost: 0
+  cost: 11
+  menuPrice: 40

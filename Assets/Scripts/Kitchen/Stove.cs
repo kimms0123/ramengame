@@ -7,25 +7,29 @@ using UnityEngine;
 namespace RamenTycoon.Kitchen
 {
     /// <summary>
-    /// 화구. 육수 1개 + 면 1개를 넣으면 자동으로 조리된다.
-    /// 조리가 끝나면 깨끗한 그릇을 들고 와서 상호작용하면 라멘이 담긴다.
-    /// 상태: Empty → (재료 투입) → Cooking → Done
+    /// 화구 (1구). 면을 넣으면 자동으로 삶아지고, 다 되면 그릇을 들고 와서 상호작용하면 면을 퍼 담는다.
+    /// 그릇에 육수가 먼저 있어도, 나중에 육수를 부어도 상관없다.
+    /// 상태: Empty → (면 투입) → Cooking → Done → (그릇에 퍼 담기) → Empty
     /// </summary>
     public class Stove : Station
     {
         public enum StoveState { Empty, Cooking, Done }
 
-        [SerializeField] float cookSeconds = 5f;
+        [SerializeField] float cookSeconds = 6f;
         [SerializeField] SpriteRenderer contentRenderer;
         [SerializeField] ProgressBar progressBar;
 
-        static readonly Color DoneTint = new(1f, 0.92f, 0.6f);
+        static readonly Color CookingColor = new(1f, 0.95f, 0.7f);
+        static readonly Color DoneColor = new(1f, 0.85f, 0.35f);
 
-        IngredientData broth;
-        bool hasNoodle;
         float timer;
 
         public StoveState State { get; private set; } = StoveState.Empty;
+        public float CookSeconds
+        {
+            get => cookSeconds;
+            set => cookSeconds = Mathf.Max(0.5f, value);
+        }
 
         protected override void Awake()
         {
@@ -38,17 +42,28 @@ namespace RamenTycoon.Kitchen
             switch (State)
             {
                 case StoveState.Empty:
-                    if (hand.Held is not IngredientItem item) return false;
-                    return item.Data.category switch
-                    {
-                        IngredientCategory.Broth => broth == null,
-                        IngredientCategory.Noodle => !hasNoodle,
-                        _ => false
-                    };
+                    return hand.Held is IngredientItem item && item.Data.category == IngredientCategory.Noodle;
                 case StoveState.Done:
-                    return hand.Held is Bowl bowl && bowl.State == BowlState.Clean;
+                    return hand.Held is Bowl bowl && bowl.CanTakeNoodle;
                 default:
                     return false;
+            }
+        }
+
+        public override string GetHint(PlayerHand hand)
+        {
+            switch (State)
+            {
+                case StoveState.Empty:
+                    if (hand.Held is Bowl) return "먼저 면 상자에서 면을 가져와 화구에 넣어요";
+                    if (hand.IsEmpty) return "면 상자에서 면을 가져와요";
+                    return "화구에는 면만 넣을 수 있어요";
+                case StoveState.Cooking:
+                    return "면을 삶는 중이에요";
+                default:
+                    if (hand.IsEmpty) return "그릇을 들고 와서 면을 담아요";
+                    if (hand.Held is Bowl b && !b.CanTakeNoodle) return b.IsDirty ? "더러운 그릇이에요" : "이미 면이 담겨 있어요";
+                    return "그릇을 들고 와야 면을 담을 수 있어요";
             }
         }
 
@@ -56,20 +71,23 @@ namespace RamenTycoon.Kitchen
         {
             if (!CanInteract(hand)) return;
 
-            if (State == StoveState.Empty && hand.Held is IngredientItem)
+            if (State == StoveState.Empty)
             {
-                var item = (IngredientItem)hand.Release();
-                if (item.Data.category == IngredientCategory.Broth) broth = item.Data;
-                else hasNoodle = true;
-                Destroy(item.gameObject);
-
-                if (broth != null && hasNoodle) StartCooking();
+                Destroy(hand.Release().gameObject);
+                timer = 0f;
+                State = StoveState.Cooking;
+                if (progressBar != null)
+                {
+                    progressBar.SetVisible(true);
+                    progressBar.SetValue(0f);
+                }
                 RefreshVisual();
             }
             else if (State == StoveState.Done && hand.Held is Bowl bowl)
             {
-                bowl.FillRamen(broth);
-                ResetStove();
+                bowl.AddNoodle();
+                State = StoveState.Empty;
+                RefreshVisual();
             }
         }
 
@@ -87,37 +105,25 @@ namespace RamenTycoon.Kitchen
             }
         }
 
-        void StartCooking()
-        {
-            timer = 0f;
-            State = StoveState.Cooking;
-            if (progressBar != null)
-            {
-                progressBar.SetVisible(true);
-                progressBar.SetValue(0f);
-            }
-        }
-
-        void ResetStove()
-        {
-            broth = null;
-            hasNoodle = false;
-            timer = 0f;
-            State = StoveState.Empty;
-            RefreshVisual();
-        }
-
         void RefreshVisual()
         {
             if (progressBar != null && State != StoveState.Cooking) progressBar.SetVisible(false);
             if (contentRenderer == null) return;
 
-            bool hasAnything = broth != null || hasNoodle;
-            contentRenderer.enabled = hasAnything;
-            if (!hasAnything) return;
+            contentRenderer.enabled = State != StoveState.Empty;
+            if (State == StoveState.Empty) return;
 
-            Color c = broth != null ? broth.placeholderColor : new Color(1f, 0.95f, 0.7f);
-            contentRenderer.color = State == StoveState.Done ? Color.Lerp(c, DoneTint, 0.5f) : c;
+            var art = GameDatabase.Art;
+            Sprite pot = art == null ? null : (State == StoveState.Done ? art.potDone : art.potCooking);
+            if (pot != null)
+            {
+                contentRenderer.sprite = pot;
+                contentRenderer.color = Color.white;
+            }
+            else
+            {
+                contentRenderer.color = State == StoveState.Done ? DoneColor : CookingColor;
+            }
         }
     }
 }

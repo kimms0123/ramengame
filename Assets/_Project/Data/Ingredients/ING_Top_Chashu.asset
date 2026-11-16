@@ -15,7 +15,8 @@ MonoBehaviour:
   id: chashu
   displayName: "\uCC28\uC288"
   category: 2
-  icon: {fileID: 0}
-  decoSprite: {fileID: 0}
+  icon: {fileID: 8040696329555781603, guid: 1615228141df8ef48a2052e83d6ab7d3, type: 3}
+  decoSprite: {fileID: 8040696329555781603, guid: 1615228141df8ef48a2052e83d6ab7d3, type: 3}
   placeholderColor: {r: 0.94, g: 0.6, b: 0.48, a: 1}
   cost: 0
+  menuPrice: 0

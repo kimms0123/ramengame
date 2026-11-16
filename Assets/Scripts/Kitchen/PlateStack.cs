@@ -5,8 +5,7 @@ using UnityEngine;
 namespace RamenTycoon.Kitchen
 {
     /// <summary>
-    /// 깨끗한 그릇 스택. 그릇 총량이 고정되어 있어서 설거지가 밀리면 라멘을 담을 수 없다.
-    /// M2에서 개수대가 설거지를 끝내면 AddClean()을 호출한다.
+    /// (그레이박스용) 개수가 정해진 그릇 스택. LAST ORDER 씬에서는 Sink가 무한 그릇을 대신한다.
     /// </summary>
     public class PlateStack : Station
     {
@@ -18,7 +17,7 @@ namespace RamenTycoon.Kitchen
         public override bool CanInteract(PlayerHand hand)
         {
             if (hand.IsEmpty) return count > 0;
-            return hand.Held is Bowl bowl && bowl.State == BowlState.Clean;
+            return hand.Held is Bowl bowl && bowl.IsEmpty;
         }
 
         public override void Interact(PlayerHand hand)
@@ -28,7 +27,7 @@ namespace RamenTycoon.Kitchen
                 hand.Hold(ItemFactory.Instance.CreateBowl());
                 SetCount(count - 1);
             }
-            else if (hand.Held is Bowl bowl && bowl.State == BowlState.Clean)
+            else if (hand.Held is Bowl bowl && bowl.IsEmpty)
             {
                 Destroy(hand.Release().gameObject);
                 SetCount(count + 1);

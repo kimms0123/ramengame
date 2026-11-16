@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6250ee623a5470f43ad9920030e6be65, type: 3}
+  m_Name: DayConfig
+  m_EditorClassIdentifier: Assembly-CSharp::RamenTycoon.Data.DayConfig
+  businessSeconds: 270
+  closingGraceSeconds: 30
+  eatSeconds: 8
+  startCoins: 60
+  activeTables: 4
+  activeStoves: 1
+  debt: 400
+  gourmetRemain: 200
+  closeSatisfaction: 30
+  startSatisfaction: 70
+  satisfactionAlpha: 0.2
+  maxTipRate: 0.2
+  days:
+  - customers: 6
+    rent: 25
+    patience: 60
+    spicyChance: 0
+    variationChance: 0
+    rushSeconds: 0
+  - customers: 8
+    rent: 30
+    patience: 57
+    spicyChance: 0.35
+    variationChance: 0.1
+    rushSeconds: 0
+  - customers: 10
+    rent: 35
+    patience: 53
+    spicyChance: 0.5
+    variationChance: 0.2
+    rushSeconds: 0
+  - customers: 12
+    rent: 40
+    patience: 49
+    spicyChance: 0.5
+    variationChance: 0.3
+    rushSeconds: 0
+  - customers: 14
+    rent: 45
+    patience: 45
+    spicyChance: 0.5
+    variationChance: 0.35
+    rushSeconds: 60

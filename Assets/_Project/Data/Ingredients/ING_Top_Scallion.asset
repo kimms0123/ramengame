@@ -15,7 +15,8 @@ MonoBehaviour:
   id: scallion
   displayName: "\uD30C"
   category: 2
-  icon: {fileID: 0}
-  decoSprite: {fileID: 0}
+  icon: {fileID: 5648256718193914484, guid: 410710e44eee70743b0e0841f8f55616, type: 3}
+  decoSprite: {fileID: 5648256718193914484, guid: 410710e44eee70743b0e0841f8f55616, type: 3}
   placeholderColor: {r: 0.5, g: 0.78, b: 0.3, a: 1}
   cost: 0
+  menuPrice: 0
