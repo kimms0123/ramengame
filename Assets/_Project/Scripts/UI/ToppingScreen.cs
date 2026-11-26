@@ -1,3 +1,4 @@
+using RamenTycoon.Audio;
 using System.Collections.Generic;
 using RamenTycoon.Core;
 using RamenTycoon.Data;
@@ -20,23 +21,34 @@ namespace RamenTycoon.UI
     /// 이미지: GameArtConfig의 toppingBackground / decoBowl* / bellSprite / trashSprite / memoPaper,
     ///         고명은 IngredientData.decoSprite(없으면 icon). 위치는 GameArtConfig의 *Rect 값으로 조절.
     /// </summary>
-    public class ToppingScreen : MonoBehaviour
+    [DefaultExecutionOrder(110)]
+    public class ToppingScreen : BakedView
     {
         public static ToppingScreen Instance { get; private set; }
 
+        [Tooltip("고명 화면이 열려 있는 동안 가게 시간 배속 (0.5 = 절반 속도)")]
         [SerializeField] float slowTimeScale = 0.5f;
         [Tooltip("올라간 고명 크기 (그릇 폭 대비)")]
         [SerializeField] float toppingSizeRatio = 0.26f;
+        [Tooltip("집은 고명이 커서에 붙어 보이는 크기")]
+        [SerializeField] float cursorSize = 110f;
+
+        [Header("씬에 만들어 둔 UI (빌더가 연결, 지우지 마세요)")]
+        [SerializeField] RectTransform root;
+        [Tooltip("고명 통 클릭 영역. 순서 = GameDatabase의 Toppings 순서 (차슈, 김, 파, 계란)")]
+        [SerializeField] Button[] binButtons;
+        [SerializeField] Image bowlImage;
+        [SerializeField] AspectRatioFitter bowlAspect;
+        [SerializeField] Button bowlButton;
+        [SerializeField] RectTransform toppingLayer;
+        [SerializeField] Button bellButton;
+        [SerializeField] Button resetButton;
+        [SerializeField] Image cursor;
+        [SerializeField] TextMeshProUGUI messageText;
 
         // 그릇 안 고명 자리 (0~1, 그릇 이미지 기준). 가운데 1 + 바깥 8
         static readonly Vector2[] Slots = BuildSlots();
 
-        RectTransform root;
-        Image bowlImage;
-        AspectRatioFitter bowlAspect;
-        RectTransform toppingLayer;
-        Image cursor;
-        TextMeshProUGUI messageText;
         float messageTimer;
 
         Bowl bowl;
@@ -47,6 +59,21 @@ namespace RamenTycoon.UI
         float savedTimeScale = 1f;
 
         public bool IsOpen { get; private set; }
+
+        // 튜토리얼 화살표용
+        public Bowl CurrentBowl => bowl;
+        public IngredientData Holding => holding;
+        public IReadOnlyDictionary<IngredientData, int> Placed => placed;
+        public RectTransform BowlRect => bowlImage != null ? bowlImage.rectTransform : null;
+        public RectTransform BellRect => bellButton != null ? (RectTransform)bellButton.transform : null;
+
+        public RectTransform BinRect(IngredientData data)
+        {
+            var db = GameDatabase.Instance;
+            if (data == null || db == null || db.toppings == null || binButtons == null) return null;
+            int i = System.Array.IndexOf(db.toppings, data);
+            return i >= 0 && i < binButtons.Length && binButtons[i] != null ? (RectTransform)binButtons[i].transform : null;
+        }
 
         static Vector2[] BuildSlots()
         {
@@ -59,11 +86,32 @@ namespace RamenTycoon.UI
             return list.ToArray();
         }
 
-        void Awake()
+        protected override void Awake()
         {
             Instance = this;
-            Build();
+            base.Awake();
             root.gameObject.SetActive(false);
+        }
+
+        protected override bool IsIntact() =>
+            root != null && binButtons != null && bowlImage != null && bowlAspect != null && bowlButton != null &&
+            toppingLayer != null && bellButton != null && resetButton != null && cursor != null && messageText != null;
+
+        protected override void Bind()
+        {
+            var db = GameDatabase.Instance;
+            for (int i = 0; i < binButtons.Length; i++)
+            {
+                if (binButtons[i] == null) continue;
+                int index = i;
+                binButtons[i].onClick.AddListener(() =>
+                {
+                    if (db != null && db.toppings != null && index < db.toppings.Length) PickTopping(db.toppings[index]);
+                });
+            }
+            bowlButton.onClick.AddListener(OnBowlClicked);
+            bellButton.onClick.AddListener(() => Close(true));
+            resetButton.onClick.AddListener(ResetToppings);
         }
 
         void OnDestroy()
@@ -73,23 +121,27 @@ namespace RamenTycoon.UI
 
         // ───────── 화면 구성 ─────────
 
-        void Build()
+        protected override void Build()
         {
             var art = GameDatabase.Art;
-            var db = GameDatabase.Instance;
+            var db = GameDatabase.Current;
 
-            root = UIFactory.Rect(UIRoot.Instance.ScreenLayer, "ToppingScreen");
+            root = Track(UIFactory.Rect(Root.ScreenLayer, "ToppingScreen"));
             UIFactory.Stretch(root);
 
-            // 배경
-            var bg = UIFactory.Image(root, "Background", art != null ? art.toppingBackground : null, new Color(0.5f, 0.31f, 0.18f), raycast: true);
+            // 배경 (그림이 없을 때만 보이는 선반·통 그림은 fallbackOnly로 묶어서 그림이 들어오면 자동으로 숨김)
+            var fallbackOnly = new List<GameObject>();
+            var bgColor = new Color(0.5f, 0.31f, 0.18f);
+            var bg = UIFactory.Image(root, "Background", art != null ? art.toppingBackground : null, bgColor, raycast: true);
             UIFactory.Stretch(bg.rectTransform);
             bool hasBackground = art != null && art.toppingBackground != null;
             if (!hasBackground)
             {
-                var shelf = UIFactory.Image(root, "Shelf", null, new Color(0.78f, 0.55f, 0.33f));
+                var shelf = UIFactory.Image(root, "Shelf (그림 없을 때만)", null, new Color(0.78f, 0.55f, 0.33f));
                 UIFactory.AnchorTopLeft(shelf.rectTransform, new Rect(0f, 0f, 1f, 0.45f));
+                fallbackOnly.Add(shelf.gameObject);
             }
+            var bins = new List<Button>();
 
             // 고명 통 (배경 위 클릭 영역)
             var toppings = db != null ? db.toppings : null;
@@ -105,7 +157,8 @@ namespace RamenTycoon.UI
                 if (!hasBackground)
                 {
                     // 배경 이미지가 없으면 통을 직접 그린다
-                    var bin = UIFactory.Image(root, $"Bin_{data.id}", null, new Color(0.45f, 0.45f, 0.48f));
+                    var bin = UIFactory.Image(root, $"Bin_{data.id} (그림 없을 때만)", null, new Color(0.45f, 0.45f, 0.48f));
+                    fallbackOnly.Add(bin.gameObject);
                     UIFactory.AnchorTopLeft(bin.rectTransform, r);
                     var icon = UIFactory.Image(bin.transform, "Icon", data.DecoOrIcon, data.placeholderColor);
                     icon.preserveAspect = true;
@@ -117,10 +170,13 @@ namespace RamenTycoon.UI
                     label.rectTransform.offsetMin = new Vector2(0f, 6f);
                 }
 
-                var captured = data;
-                var hot = UIFactory.HotSpot(root, $"BinButton_{data.id}", () => PickTopping(captured));
+                var hot = UIFactory.HotSpot(root, $"BinButton_{i + 1}_{data.id}", null);
                 UIFactory.AnchorTopLeft((RectTransform)hot.transform, r);
+                while (bins.Count < i) bins.Add(null);
+                bins.Add(hot);
             }
+            binButtons = bins.ToArray();
+            UIArtSlot.Attach(bg, nameof(art.toppingBackground), bgColor, fallbackOnly.ToArray());
 
             // 그릇
             Rect bowlRect = art != null ? art.decoBowlRect : new Rect(0.4f, 0.47f, 0.29f, 0.5f);
@@ -132,9 +188,8 @@ namespace RamenTycoon.UI
             bowlAspect = bowlImage.gameObject.AddComponent<AspectRatioFitter>();
             bowlAspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             bowlAspect.aspectRatio = 1f;
-            var bowlButton = bowlImage.gameObject.AddComponent<Button>();
+            bowlButton = bowlImage.gameObject.AddComponent<Button>();
             bowlButton.transition = Selectable.Transition.None;
-            bowlButton.onClick.AddListener(OnBowlClicked);
 
             toppingLayer = UIFactory.Rect(bowlImage.transform, "Toppings");
             UIFactory.Stretch(toppingLayer);
@@ -144,15 +199,19 @@ namespace RamenTycoon.UI
             OrderMemoView.Create(root, new Vector2(memoRect.x, memoRect.y), memoRect.width * 1920f, "Memo");
 
             // 완성 벨 / 다시
-            var bell = UIFactory.Button(root, "Bell", art != null && art.bellSprite != null ? "" : "완성 (Enter)",
-                () => Close(true), art != null ? art.bellSprite : null, new Vector2(230f, 120f), 32);
-            UIFactory.Place((RectTransform)bell.transform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-90f, 90f), new Vector2(230f, 120f));
-            if (art != null && art.bellSprite != null) ((Image)bell.targetGraphic).preserveAspect = true;
+            bellButton = UIFactory.Button(root, "Bell", art != null && art.bellSprite != null ? "" : "완성 (Enter)",
+                null, art != null ? art.bellSprite : null, new Vector2(230f, 120f), 32);
+            UIFactory.Place((RectTransform)bellButton.transform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-90f, 90f), new Vector2(230f, 120f));
+            ((Image)bellButton.targetGraphic).preserveAspect = true;
+            UIArtSlot.Attach((Image)bellButton.targetGraphic, nameof(art.bellSprite), UIFactory.Accent,
+                art != null && art.bellSprite != null ? null : bellButton.GetComponentInChildren<TextMeshProUGUI>().gameObject);
 
-            var reset = UIFactory.Button(root, "Reset", art != null && art.trashSprite != null ? "" : "다시 (R)",
-                ResetToppings, art != null ? art.trashSprite : null, new Vector2(170f, 90f), 28);
-            UIFactory.Place((RectTransform)reset.transform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-340f, 105f), new Vector2(170f, 90f));
-            if (art != null && art.trashSprite != null) ((Image)reset.targetGraphic).preserveAspect = true;
+            resetButton = UIFactory.Button(root, "Reset", art != null && art.trashSprite != null ? "" : "다시 (R)",
+                null, art != null ? art.trashSprite : null, new Vector2(170f, 90f), 28);
+            UIFactory.Place((RectTransform)resetButton.transform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-340f, 105f), new Vector2(170f, 90f));
+            ((Image)resetButton.targetGraphic).preserveAspect = true;
+            UIArtSlot.Attach((Image)resetButton.targetGraphic, nameof(art.trashSprite), UIFactory.Accent,
+                art != null && art.trashSprite != null ? null : resetButton.GetComponentInChildren<TextMeshProUGUI>().gameObject);
 
             // 안내 문구
             var help = UIFactory.Text(root, "Help", "고명 통을 눌러 집고 그릇을 눌러 올려요   ·   우클릭 내려놓기   ·   Esc 취소", 26, Color.white, TextAnchor.MiddleCenter);
@@ -166,9 +225,10 @@ namespace RamenTycoon.UI
             // 커서에 붙는 고명 (맨 위)
             cursor = UIFactory.Image(root, "Cursor", null, Color.white);
             cursor.preserveAspect = true;
-            cursor.rectTransform.sizeDelta = new Vector2(110f, 110f);
+            cursor.rectTransform.sizeDelta = new Vector2(cursorSize, cursorSize);
             cursor.color = new Color(1f, 1f, 1f, 0.85f);
             cursor.gameObject.SetActive(false);
+            root.gameObject.SetActive(false); // 씬에서 편집할 때는 Hierarchy에서 ToppingScreen을 켜서 보면 됨
         }
 
         // ───────── 열기 / 닫기 ─────────
@@ -176,6 +236,7 @@ namespace RamenTycoon.UI
         public void Open(Bowl target)
         {
             if (target == null || IsOpen) return;
+            AudioManager.Play("ui_open");
             bowl = target;
             holding = null;
             cursor.gameObject.SetActive(false);
@@ -213,6 +274,13 @@ namespace RamenTycoon.UI
         public void Close(bool apply)
         {
             if (!IsOpen) return;
+            if (apply && !TutorialState.ToppingsMatch(placed))
+            {
+                ShowMessage("주문서대로 토핑을 다 올려야 종을 울릴 수 있어요");
+                AudioManager.Play("error");
+                return;
+            }
+            AudioManager.Play(apply ? "bell" : "ui_close");
 
             if (apply && bowl != null)
             {
@@ -290,7 +358,20 @@ namespace RamenTycoon.UI
         void PickTopping(IngredientData data)
         {
             if (data == null) return;
+            var need = TutorialState.RequiredToppings;
+            if (need != null)
+            {
+                need.TryGetValue(data, out int want);
+                placed.TryGetValue(data, out int have);
+                if (want <= 0 || have >= want)
+                {
+                    ShowMessage(want <= 0 ? "주문서에 없는 토핑이에요" : "이 토핑은 다 올렸어요");
+                    AudioManager.Play("error");
+                    return;
+                }
+            }
             holding = data;
+            AudioManager.Play("pickup", 0.7f);
             UIFactory.SetSprite(cursor, data.DecoOrIcon, data.placeholderColor);
             cursor.color = new Color(cursor.color.r, cursor.color.g, cursor.color.b, 0.85f);
             cursor.preserveAspect = true;
@@ -320,13 +401,32 @@ namespace RamenTycoon.UI
                 if (slot < 0)
                 {
                     ShowMessage("그릇이 가득 찼어요");
+                    AudioManager.Play("error");
                     return;
                 }
+                var need = TutorialState.RequiredToppings;
+                if (need != null)
+                {
+                    need.TryGetValue(holding, out int want);
+                    placed.TryGetValue(holding, out int have);
+                    if (have >= want)
+                    {
+                        ShowMessage("이 토핑은 다 올렸어요");
+                        AudioManager.Play("error");
+                        DropHolding();
+                        return;
+                    }
+                }
                 AddTopping(holding, slot);
+                AudioManager.Play("topping");
+                // 튜토리얼: 필요한 개수를 다 올리면 손에서 내려놓아 다음 토핑으로 넘어가게
+                if (need != null && placed.TryGetValue(holding, out int now) && need.TryGetValue(holding, out int max) && now >= max)
+                    DropHolding();
             }
             else
             {
                 RemoveNearest(norm);
+                AudioManager.Play("pickup", 0.6f);
             }
         }
 
@@ -382,12 +482,13 @@ namespace RamenTycoon.UI
                 else placed[p.data] = n - 1;
             }
             slotUsed[p.slot] = false;
-            Destroy(p.image.gameObject);
+            UIFactory.DestroySafe(p.image.gameObject);
             placedImages.RemoveAt(best);
         }
 
         void ResetToppings()
         {
+            AudioManager.Play("trash", 0.7f);
             ClearPlaced();
             DropHolding();
         }
@@ -396,7 +497,7 @@ namespace RamenTycoon.UI
         {
             foreach (var p in placedImages)
             {
-                if (p.image != null) Destroy(p.image.gameObject);
+                if (p.image != null) UIFactory.DestroySafe(p.image.gameObject);
             }
             placedImages.Clear();
             placed.Clear();

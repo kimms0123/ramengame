@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59e3262f965c78341bfe8b84a5bd9229, type: 3}
+  m_Name: Set_cust_m
+  m_EditorClassIdentifier: Assembly-CSharp::RamenTycoon.Data.CharacterSpriteSet
+  front:
+  - {fileID: 3105643223626262844, guid: 3e9cafb0ab810864aa08c6bd4f609514, type: 3}
+  - {fileID: -1939260271160996226, guid: 82e86031a6a5eca4f9a96f89822eaccc, type: 3}
+  - {fileID: -3714759837711761484, guid: dd282857fc2d352479caca35800233cf, type: 3}
+  back:
+  - {fileID: -5314649538718144430, guid: aadaea9af2b373943aab8e1528d1e10b, type: 3}
+  - {fileID: -8633266893029996373, guid: 7817f56f112e22040a59b09f0f1c3f4e, type: 3}
+  - {fileID: -1699347486393517352, guid: db364a2150ad69c4a910d5fc1a565fbb, type: 3}
+  - {fileID: -7605755479706027210, guid: 8144e392d14881043b2c6ebc2fc6e719, type: 3}
+  side:
+  - {fileID: -7197285449693797860, guid: 733cc61a9d6646b4691ffe662558ccb1, type: 3}
+  - {fileID: 2693507160069072923, guid: 6035af18c3b433641a044b5d1f160d7c, type: 3}
+  - {fileID: -154957456728684564, guid: cbd12c87e2e97384989aa28ee85214ff, type: 3}
+  - {fileID: -4391543747734196478, guid: 698f9407127966449bc4cb6d00e7b146, type: 3}
+  sideFacesLeft: 1
+  walkFps: 8

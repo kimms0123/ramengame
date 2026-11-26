@@ -1,2 +1,83 @@
 fileFormatVersion: 2
 guid: 5f719d8e7252d6845b2f338a1441bb55
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - map: {instanceID: 0}
+  - stove: {instanceID: 0}
+  - sink: {instanceID: 0}
+  - sinkBowlStack: {instanceID: 0}
+  - brothUrnTonkotsu: {instanceID: 0}
+  - brothUrnSpicy: {instanceID: 0}
+  - noodleBox: {instanceID: 0}
+  - toppingCounter: {instanceID: 0}
+  - table: {instanceID: 0}
+  - chair: {instanceID: 0}
+  - bowlClean: {instanceID: 0}
+  - bowlBrothTonkotsu: {instanceID: 0}
+  - bowlBrothSpicy: {instanceID: 0}
+  - bowlRamenTonkotsu: {instanceID: 0}
+  - bowlRamenSpicy: {instanceID: 0}
+  - bowlDirty: {instanceID: 0}
+  - potCooking: {instanceID: 0}
+  - potDone: {instanceID: 0}
+  - playerSet: {instanceID: 0}
+  - playerSprite: {instanceID: 0}
+  - playerAnimator: {instanceID: 0}
+  - customerAnimator: {instanceID: 0}
+  - toppingBackground: {instanceID: 0}
+  - decoBowlTonkotsu: {instanceID: 0}
+  - decoBowlSpicy: {instanceID: 0}
+  - bellSprite: {instanceID: 0}
+  - trashSprite: {instanceID: 0}
+  - speechBubble: {instanceID: 0}
+  - upgradeIcon: {fileID: 5029005946968052801, guid: fe8f8031b7ce62e4687244ff4edaf45b, type: 3}
+  - upgradePanel: {fileID: 5029005946968052801, guid: fe8f8031b7ce62e4687244ff4edaf45b, type: 3}
+  - trashCan: {instanceID: 0}
+  - speechBubbleTail: {instanceID: 0}
+  - memoPaper: {instanceID: 0}
+  - hudPanel: {instanceID: 0}
+  - panelBackground: {instanceID: 0}
+  - buttonSprite: {instanceID: 0}
+  - coinIcon: {instanceID: 0}
+  - clockIcon: {instanceID: 0}
+  - heartIcon: {instanceID: 0}
+  - satisfactionHigh: {instanceID: 0}
+  - satisfactionMid: {instanceID: 0}
+  - satisfactionLow: {instanceID: 0}
+  - patienceBarBack: {instanceID: 0}
+  - patienceBarFill: {instanceID: 0}
+  - dirtyIcon: {instanceID: 0}
+  - eatingIcon: {instanceID: 0}
+  - hudBar: {instanceID: 0}
+  - settingsIcon: {instanceID: 0}
+  - titleBackground: {instanceID: 0}
+  - titleLogo: {instanceID: 0}
+  - titleButton: {instanceID: 0}
+  - titleStartIcon: {instanceID: 0}
+  - titleExitIcon: {instanceID: 0}
+  - settingsPanel: {instanceID: 0}
+  - settingsTitleIcon: {instanceID: 0}
+  - settingsSoundIcon: {instanceID: 0}
+  - settingsScreenIcon: {instanceID: 0}
+  - settingsSliderTrack: {instanceID: 0}
+  - settingsSliderFill: {instanceID: 0}
+  - settingsHandle: {instanceID: 0}
+  - settingsCheckbox: {instanceID: 0}
+  - settingsCheck: {instanceID: 0}
+  - settingsButtonDefault: {instanceID: 0}
+  - settingsButtonApply: {instanceID: 0}
+  - settingsButtonClose: {instanceID: 0}
+  - settingsButtonX: {instanceID: 0}
+  - endingGood: {instanceID: 0}
+  - endingNormal: {instanceID: 0}
+  - endingBad: {instanceID: 0}
+  - endingTextBox: {instanceID: 0}
+  - endingArrow: {instanceID: 0}
+  - uiFontAsset: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

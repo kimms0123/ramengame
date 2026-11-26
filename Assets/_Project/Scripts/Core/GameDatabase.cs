@@ -23,8 +23,13 @@ namespace RamenTycoon.Core
         [Tooltip("고명 순서 = 고명 화면의 통 순서 (차슈, 김, 파, 계란)")]
         public IngredientData[] toppings;
 
-        public static GameArtConfig Art => Instance != null ? Instance.art : null;
-        public static DayConfig Days => Instance != null ? Instance.dayConfig : null;
+        /// <summary>
+        /// Play 중에는 Instance, 에디터에서 UI를 씬에 미리 만들 때(Awake 전)는 씬에서 찾아서 쓴다.
+        /// </summary>
+        public static GameDatabase Current => Instance != null ? Instance : FindAnyObjectByType<GameDatabase>();
+
+        public static GameArtConfig Art { get { var db = Current; return db != null ? db.art : null; } }
+        public static DayConfig Days { get { var db = Current; return db != null ? db.dayConfig : null; } }
 
         void Awake()
         {

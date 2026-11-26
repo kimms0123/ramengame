@@ -19,6 +19,7 @@ namespace RamenTycoon.Core
         public int DayServed { get; private set; }
         public int DayLost { get; private set; }
         public int DayMistakes { get; private set; }
+        public int DayUpgradeCost { get; private set; }
 
         public event Action Changed;
 
@@ -34,15 +35,29 @@ namespace RamenTycoon.Core
 
         void Start()
         {
+            var save = SaveSystem.Pending;
+            if (save != null)
+            {
+                LoadState(save.coins, save.satisfaction);
+                return;
+            }
             var cfg = GameDatabase.Days;
             Coins = cfg != null ? cfg.startCoins : 60;
             Satisfaction = cfg != null ? cfg.startSatisfaction : 70f;
             Changed?.Invoke();
         }
 
+        /// <summary>이어하기: 저장된 돈·만족도로 맞춤</summary>
+        public void LoadState(int coins, float satisfaction)
+        {
+            Coins = coins;
+            Satisfaction = Mathf.Clamp(satisfaction, 0f, 100f);
+            Changed?.Invoke();
+        }
+
         public void ResetDayStats()
         {
-            DayRevenue = DayIngredientCost = DayServed = DayLost = DayMistakes = 0;
+            DayRevenue = DayIngredientCost = DayServed = DayLost = DayMistakes = DayUpgradeCost = 0;
             Changed?.Invoke();
         }
 
@@ -69,6 +84,16 @@ namespace RamenTycoon.Core
         {
             DayLost++;
             FeedSatisfaction(0f);
+        }
+
+        /// <summary>업그레이드 구매. 돈이 모자라면 false</summary>
+        public bool TrySpendUpgrade(int cost)
+        {
+            if (cost < 0 || Coins < cost) return false;
+            Coins -= cost;
+            DayUpgradeCost += cost;
+            Changed?.Invoke();
+            return true;
         }
 
         public void Pay(int amount)

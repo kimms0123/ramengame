@@ -18,8 +18,35 @@ namespace RamenTycoon.Data
         [Tooltip("매운 라멘 주문 확률 (0이면 돈코츠만)")]
         [Range(0f, 1f)] public float spicyChance = 0.5f;
 
-        [Tooltip("변형 주문(차슈 추가, 파 빼기 등) 확률")]
-        [Range(0f, 1f)] public float variationChance = 0.1f;
+        [Header("고명 주문 (0 / -1 = 일차에 따라 자동으로 어려워짐)")]
+        [Tooltip("주문 하나에 들어가는 고명 종류 수 최소. 0 = 자동 (1일차 1 → 5일차 3)")]
+        public int minToppingKinds = 0;
+
+        [Tooltip("주문 하나에 들어가는 고명 종류 수 최대. 0 = 자동 (1일차 2 → 5일차 4)")]
+        public int maxToppingKinds = 0;
+
+        [Tooltip("같은 고명을 최대 몇 개까지 시킬지. 0 = 자동 (1일차 1 → 5일차 3)")]
+        public int maxToppingCount = 0;
+
+        [Tooltip("고명을 2개 이상 시킬 확률. -1 = 자동 (1일차 0 → 5일차 0.5)")]
+        [Range(-1f, 1f)] public float extraCountChance = -1f;
+
+        // 자동 값 (1~5일차, 그 뒤는 5일차와 같음)
+        static readonly int[] AutoMinKinds = { 1, 1, 2, 2, 3 };
+        static readonly int[] AutoMaxKinds = { 2, 3, 3, 4, 4 };
+        static readonly int[] AutoMaxCount = { 1, 2, 2, 3, 3 };
+        static readonly float[] AutoExtra = { 0f, 0.2f, 0.3f, 0.4f, 0.5f };
+
+        /// <summary>이날 고명 주문 규칙 (자동 값 반영)</summary>
+        public void ToppingRules(int day, out int minKinds, out int maxKinds, out int maxCount, out float extraChance)
+        {
+            int i = Mathf.Clamp(day - 1, 0, AutoMinKinds.Length - 1);
+            minKinds = minToppingKinds > 0 ? minToppingKinds : AutoMinKinds[i];
+            maxKinds = maxToppingKinds > 0 ? maxToppingKinds : AutoMaxKinds[i];
+            maxCount = maxToppingCount > 0 ? maxToppingCount : AutoMaxCount[i];
+            extraChance = extraCountChance >= 0f ? extraCountChance : AutoExtra[i];
+            if (maxKinds < minKinds) maxKinds = minKinds;
+        }
 
         [Tooltip("마지막 몇 초를 러시아워로 할지 (그 구간에 손님이 몰림). 0이면 없음")]
         public float rushSeconds = 0f;
@@ -65,14 +92,21 @@ namespace RamenTycoon.Data
         [Tooltip("빨리 내줬을 때 최대 팁 비율")]
         [Range(0f, 1f)] public float maxTipRate = 0.2f;
 
+        [Header("가격")]
+        [Tooltip("고명 1개당 라멘 값에 더해지는 가격 (C). 재료 에셋의 Menu Price가 0인 고명에 적용")]
+        public int toppingPrice = 3;
+
+        [Tooltip("고명 1개당 손님이 더 기다려 주는 시간 (초). 고명이 많은 주문일수록 여유를 줌")]
+        public float patiencePerTopping = 2f;
+
         [Header("일차별 설정 (DAY 1 ~ 5)")]
         public DaySetting[] days =
         {
-            new DaySetting { customers = 6,  rent = 25, patience = 60f, spicyChance = 0f,   variationChance = 0f },
-            new DaySetting { customers = 8,  rent = 30, patience = 57f, spicyChance = 0.35f, variationChance = 0.1f },
-            new DaySetting { customers = 10, rent = 35, patience = 53f, spicyChance = 0.5f, variationChance = 0.2f },
-            new DaySetting { customers = 12, rent = 40, patience = 49f, spicyChance = 0.5f, variationChance = 0.3f },
-            new DaySetting { customers = 14, rent = 45, patience = 45f, spicyChance = 0.5f, variationChance = 0.35f, rushSeconds = 60f },
+            new DaySetting { customers = 6,  rent = 25, patience = 60f, spicyChance = 0f },
+            new DaySetting { customers = 8,  rent = 30, patience = 57f, spicyChance = 0.35f },
+            new DaySetting { customers = 11, rent = 35, patience = 53f, spicyChance = 0.5f },
+            new DaySetting { customers = 14, rent = 40, patience = 49f, spicyChance = 0.5f, rushSeconds = 40f },
+            new DaySetting { customers = 17, rent = 45, patience = 45f, spicyChance = 0.5f, rushSeconds = 60f },
         };
 
         public int TotalDays => days.Length;

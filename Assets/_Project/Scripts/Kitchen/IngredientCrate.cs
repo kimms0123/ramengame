@@ -1,3 +1,4 @@
+using RamenTycoon.Audio;
 using RamenTycoon.Core;
 using RamenTycoon.Data;
 using RamenTycoon.Player;
@@ -12,6 +13,17 @@ namespace RamenTycoon.Kitchen
     public class IngredientCrate : Station
     {
         [SerializeField] IngredientData ingredient;
+
+        protected override Sprite DefaultSprite(GameArtConfig art) => art.noodleBox;
+        protected override float DefaultWidth => 1.75f;
+
+#if UNITY_EDITOR
+        protected override void OnEditorSetup(GameArtConfig art, Vector2 size)
+        {
+            var db = GameDatabase.Current;
+            if (ingredient == null && db != null) ingredient = db.noodle;
+        }
+#endif
 
         public IngredientData Ingredient
         {
@@ -57,10 +69,12 @@ namespace RamenTycoon.Kitchen
             if (hand.IsEmpty)
             {
                 hand.Hold(ItemFactory.Instance.CreateIngredient(ingredient));
+                AudioManager.Play("pickup");
             }
             else if (hand.Held is IngredientItem item && item.Data == ingredient)
             {
                 Destroy(hand.Release().gameObject);
+                AudioManager.Play("place");
             }
         }
     }

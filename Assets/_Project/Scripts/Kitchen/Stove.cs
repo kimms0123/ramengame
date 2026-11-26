@@ -1,3 +1,4 @@
+using RamenTycoon.Audio;
 using RamenTycoon.Core;
 using RamenTycoon.Data;
 using RamenTycoon.Player;
@@ -15,6 +16,7 @@ namespace RamenTycoon.Kitchen
     {
         public enum StoveState { Empty, Cooking, Done }
 
+        [Tooltip("면 삶는 시간 (초). 화구 3개를 같이 선택하면 한 번에 바꿀 수 있음")]
         [SerializeField] float cookSeconds = 6f;
         [SerializeField] SpriteRenderer contentRenderer;
         [SerializeField] ProgressBar progressBar;
@@ -36,6 +38,33 @@ namespace RamenTycoon.Kitchen
             base.Awake();
             RefreshVisual();
         }
+
+        protected override Sprite DefaultSprite(Data.GameArtConfig art) => art.stove;
+        protected override float DefaultWidth => 1.45f;
+
+#if UNITY_EDITOR
+        protected override void OnEditorSetup(Data.GameArtConfig art, Vector2 size)
+        {
+            // 냄비 (삶는 동안만 보임)
+            var old = transform.Find("Content");
+            if (old != null) DestroyImmediate(old.gameObject);
+            var pot = new GameObject("Content").AddComponent<SpriteRenderer>();
+            pot.transform.SetParent(transform, false);
+            pot.transform.localPosition = new Vector3(0f, size.y * 0.18f, 0f);
+            Sprite potSprite = art != null ? art.potCooking : null;
+            pot.sprite = potSprite;
+            if (potSprite != null)
+            {
+                float s = size.x * 0.55f / Mathf.Max(0.001f, potSprite.bounds.size.x);
+                pot.transform.localScale = new Vector3(s, s, 1f);
+            }
+            pot.sortingOrder = bodyRenderer.sortingOrder + 1;
+            pot.enabled = false;
+            contentRenderer = pot;
+
+            progressBar = EditorCreateProgressBar(new Vector2(0f, size.y * 0.5f + 0.3f), size.x * 0.8f);
+        }
+#endif
 
         public override bool CanInteract(PlayerHand hand)
         {
@@ -76,6 +105,7 @@ namespace RamenTycoon.Kitchen
                 Destroy(hand.Release().gameObject);
                 timer = 0f;
                 State = StoveState.Cooking;
+                AudioManager.Play("noodle_in");
                 if (progressBar != null)
                 {
                     progressBar.SetVisible(true);
@@ -87,6 +117,7 @@ namespace RamenTycoon.Kitchen
             {
                 bowl.AddNoodle();
                 State = StoveState.Empty;
+                AudioManager.Play("scoop");
                 RefreshVisual();
             }
         }
@@ -101,6 +132,7 @@ namespace RamenTycoon.Kitchen
             if (timer >= cookSeconds)
             {
                 State = StoveState.Done;
+                AudioManager.Play("noodle_done");
                 RefreshVisual();
             }
         }

@@ -12,32 +12,36 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f719d8e7252d6845b2f338a1441bb55, type: 3}
   m_Name: GameArtConfig
   m_EditorClassIdentifier: Assembly-CSharp::RamenTycoon.Data.GameArtConfig
-  map: {fileID: 21300000, guid: fbe82dfe78f6b2d4e8fa2cc9f0859327, type: 3}
-  stove: {fileID: -3326557430243300366, guid: 0f2e286c466364347ac871a565abf0b2, type: 3}
-  sink: {fileID: 657193517335828509, guid: b9dccb77ec108ae408509605a22d3f92, type: 3}
+  map: {fileID: 4804446361586417100, guid: 7e519ada3144a0b44bbbc90be28420b6, type: 3}
+  stove: {fileID: 8744754548728704970, guid: 15a412243fb3b5146a29ea7bccf4d357, type: 3}
+  sink: {fileID: 1944054995938551939, guid: a0e637026679f234c9e67efe8f706bf2, type: 3}
   sinkBowlStack: {fileID: 0}
-  brothUrnTonkotsu: {fileID: 8249789822515323462, guid: b21041e2af47502418befc4edd294a3e, type: 3}
-  brothUrnSpicy: {fileID: 1486174480520335349, guid: d2459d55f484a6f44a56168bcf1ef967, type: 3}
-  noodleBox: {fileID: -6316198400586498764, guid: 6477d2386d704494a80dc388d2cde3f5, type: 3}
-  toppingCounter: {fileID: 7030235827056967469, guid: dae786cbc432c6d4aa7e9852ec6c408a, type: 3}
-  table: {fileID: -4346793551103155523, guid: 3783550c70fa3834d84f8c8c9a4945f0, type: 3}
+  brothUrnTonkotsu: {fileID: -6942320777394457980, guid: 5b69776ed0b584c45bdceeccdc5adcae, type: 3}
+  brothUrnSpicy: {fileID: -9042237726562775410, guid: ff5435c33083cc443b0ab4636aa031b1, type: 3}
+  noodleBox: {fileID: -6235596022365448379, guid: 842912ad89770c746822dc76fb535810, type: 3}
+  toppingCounter: {fileID: -6731876651162015866, guid: 652ec365cae8500458dc5a84e67ccd79, type: 3}
+  table: {fileID: -8841490917199087839, guid: 66b4b0edfd24de046ba651eeaaed9233, type: 3}
   chair: {fileID: 0}
-  bowlClean: {fileID: 0}
+  bowlClean: {fileID: 25559323824807467, guid: 5962ba8ba3429bb439ac638bb2101c28, type: 3}
   bowlBrothTonkotsu: {fileID: 0}
   bowlBrothSpicy: {fileID: 0}
-  bowlRamenTonkotsu: {fileID: 0}
-  bowlRamenSpicy: {fileID: 0}
+  bowlRamenTonkotsu: {fileID: -2860966932465060631, guid: 25d77127d7c920c4092afdc60772ec52, type: 3}
+  bowlRamenSpicy: {fileID: 8272443863616481165, guid: adef205cea22d5e4c93a0a84be298df8, type: 3}
   bowlDirty: {fileID: 0}
-  potCooking: {fileID: 0}
+  potCooking: {fileID: 7763366483988524530, guid: eea408d6cd613514190571459a12aa65, type: 3}
   potDone: {fileID: 0}
-  playerSprite: {fileID: 953851453, guid: 97168d67a31e7ae4c8c4ad4e8520965f, type: 3}
-  playerAnimator: {fileID: 9100000, guid: 2c92ad4a7df098740ab0cd9e7af0711d, type: 2}
+  playerSet: {fileID: 11400000, guid: d5d8cdc2350fe414b9aecaeb628c9c81, type: 2}
+  customerSets:
+  - {fileID: 11400000, guid: f90b5a10d8699ef438f27139b1eddd91, type: 2}
+  - {fileID: 11400000, guid: 6c6fdb552387feb4b88fcc5fbaeb54bd, type: 2}
+  playerSprite: {fileID: 21300000, guid: 901639f1dddd7b04aa3c943786d274d5, type: 3}
+  playerAnimator: {fileID: 0}
   customerSprites: []
   customerAnimator: {fileID: 0}
-  toppingBackground: {fileID: 7114418947609066526, guid: 45f77ca1a9fad7541ba35010e4acfac8, type: 3}
-  decoBowlTonkotsu: {fileID: 0}
-  decoBowlSpicy: {fileID: 7971498871667320158, guid: e65fa268ec38a3e48982241cef19b9ff, type: 3}
-  bellSprite: {fileID: 0}
+  toppingBackground: {fileID: 0}
+  decoBowlTonkotsu: {fileID: 2814882754546517889, guid: a81f0a427f4b80240aacf1fabf5fbea5, type: 3}
+  decoBowlSpicy: {fileID: 8636640330934361931, guid: ce2439663bfccde4d8cd9e7037db9e66, type: 3}
+  bellSprite: {fileID: 8139719423079072813, guid: 21c14efd3af93d941ae53fcf36deb79a, type: 3}
   trashSprite: {fileID: 0}
   toppingBinRects:
   - serializedVersion: 2
@@ -68,20 +72,52 @@ MonoBehaviour:
     height: 0.5
   memoRect:
     serializedVersion: 2
-    x: 0.06
-    y: 0.48
-    width: 0.22
-    height: 0.46
-  speechBubble: {fileID: 0}
-  memoPaper: {fileID: 0}
+    x: 0.8031
+    y: 0.3509
+    width: 0.1708
+    height: 0.3028
+  speechBubble: {fileID: -9136834448258697486, guid: e599b38052ffd5940bfb800b0d91470c, type: 3}
+  upgradeIcon: {fileID: 5029005946968052801, guid: fe8f8031b7ce62e4687244ff4edaf45b, type: 3}
+  upgradePanel: {fileID: 5029005946968052801, guid: fe8f8031b7ce62e4687244ff4edaf45b, type: 3}
+  trashCan: {fileID: 8905124213578508802, guid: c410a729567f37847ba8f25c428e5c65, type: 3}
+  speechBubbleTail: {fileID: 2296723144442252719, guid: d67cc275a6b37c9428124267e7586c2d, type: 3}
+  memoPaper: {fileID: -5516983809324860971, guid: 5d759bac9de05b04d8a5636fb824cc11, type: 3}
   hudPanel: {fileID: 0}
   panelBackground: {fileID: 0}
   buttonSprite: {fileID: 0}
-  coinIcon: {fileID: 0}
+  coinIcon: {fileID: 8139719423079072813, guid: 21c14efd3af93d941ae53fcf36deb79a, type: 3}
   clockIcon: {fileID: 0}
   heartIcon: {fileID: 0}
+  satisfactionHigh: {fileID: 8419049425873549780, guid: bac9c4d38d5fc1249b5c8812977d5f7b, type: 3}
+  satisfactionMid: {fileID: -6161225849091489581, guid: aeb5497062c3c8f47875f4697882af3a, type: 3}
+  satisfactionLow: {fileID: 3845237052928513470, guid: e76cb145071ff8940a835b21a12ba999, type: 3}
   patienceBarBack: {fileID: 0}
   patienceBarFill: {fileID: 0}
   dirtyIcon: {fileID: 0}
   eatingIcon: {fileID: 0}
-  uiFont: {fileID: 0}
+  hudBar: {fileID: -4198693238978281491, guid: 540cc06a5b2fc91489d893e34a38124b, type: 3}
+  settingsIcon: {fileID: -461434991869414348, guid: d8431568834f75f4083b7187a295a7bc, type: 3}
+  titleBackground: {fileID: 5722359834925803881, guid: 1b2e42dd2b9d8db4982b164ecf6c8085, type: 3}
+  titleLogo: {fileID: 0}
+  titleButton: {fileID: -6098571350751997549, guid: 10a2dcb7667935a41817d30001219611, type: 3}
+  titleStartIcon: {fileID: -3575030697521010214, guid: edaef4a616874b44fbda897bfffda03b, type: 3}
+  titleExitIcon: {fileID: 422282390228114211, guid: 5bd22fa5a2191604b99eb6198f4980a5, type: 3}
+  settingsPanel: {fileID: 0}
+  settingsTitleIcon: {fileID: 0}
+  settingsSoundIcon: {fileID: 0}
+  settingsScreenIcon: {fileID: 0}
+  settingsSliderTrack: {fileID: 0}
+  settingsSliderFill: {fileID: 0}
+  settingsHandle: {fileID: 0}
+  settingsCheckbox: {fileID: 0}
+  settingsCheck: {fileID: 0}
+  settingsButtonDefault: {fileID: 0}
+  settingsButtonApply: {fileID: 0}
+  settingsButtonClose: {fileID: 0}
+  settingsButtonX: {fileID: 0}
+  endingGood: {fileID: 1280633864790571118, guid: 6fd97c1a31c225a46b82f521465231e7, type: 3}
+  endingNormal: {fileID: 1207196402453727958, guid: eac83632f1952604c874aadb3d1f5e8c, type: 3}
+  endingBad: {fileID: -663104076315902348, guid: 0a34ff1e69746124ba518ae09cbfc031, type: 3}
+  endingTextBox: {fileID: 0}
+  endingArrow: {fileID: 0}
+  uiFontAsset: {fileID: 11400000, guid: 2383fac9cf61df441978003546d9e36d, type: 2}

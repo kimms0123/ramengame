@@ -79,6 +79,18 @@ namespace RamenTycoon.Kitchen
             Refresh();
         }
 
+        /// <summary>쓰레기통: 담긴 것을 모두 버리고 깨끗한 빈 그릇으로</summary>
+        public void Empty()
+        {
+            Broth = null;
+            HasNoodle = false;
+            Decorated = false;
+            AssignedTable = 0;
+            toppings.Clear();
+            IsDirty = false;
+            Refresh();
+        }
+
         public void MarkDirty()
         {
             Broth = null;

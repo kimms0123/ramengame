@@ -15,7 +15,7 @@ MonoBehaviour:
   id: spicy
   displayName: "\uB9E4\uC6B4"
   category: 0
-  icon: {fileID: 0}
+  icon: {fileID: 7818066966202360329, guid: 0a1aa1cc0e4d0984e94eedffe5c14159, type: 3}
   decoSprite: {fileID: 0}
   placeholderColor: {r: 0.85, g: 0.3, b: 0.2, a: 1}
   cost: 13

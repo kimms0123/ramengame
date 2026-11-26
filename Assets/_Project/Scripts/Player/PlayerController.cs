@@ -10,6 +10,7 @@ namespace RamenTycoon.Player
     [RequireComponent(typeof(Rigidbody2D))]
     public class PlayerController : MonoBehaviour
     {
+        [Tooltip("플레이어 이동 속도 (초당 월드 유닛)")]
         [SerializeField] float moveSpeed = 4.5f;
 
         Rigidbody2D rb;

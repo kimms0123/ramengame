@@ -16,7 +16,10 @@ namespace RamenTycoon.Customers
 
         public static readonly List<Customer> Active = new();
 
+        [Tooltip("걷는 속도 (손님은 게임 중에 생성되므로 DayManager의 Customer Speed에서 바꾸세요)")]
         [SerializeField] float speed = 5.5f;
+
+        public float Speed { get => speed; set => speed = value; }
         [SerializeField] SpriteRenderer body;
         [SerializeField] Animator animator;
 

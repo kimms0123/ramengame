@@ -12,8 +12,11 @@ namespace RamenTycoon.Player
     [RequireComponent(typeof(PlayerController), typeof(PlayerHand))]
     public class PlayerInteractor : MonoBehaviour
     {
+        [Tooltip("바라보는 방향으로 얼마나 앞을 살필지 (상호작용 거리)")]
         [SerializeField] float probeDistance = 0.55f;
+        [Tooltip("상호작용 범위 반지름. 크면 멀리서도 E가 먹힘")]
         [SerializeField] float probeRadius = 0.6f;
+        [Tooltip("여러 설비가 가까울 때 바라보는 쪽을 얼마나 우선할지")]
         [SerializeField, Range(0f, 2f)] float facingWeight = 0.6f;
 
         PlayerController controller;
@@ -59,6 +62,12 @@ namespace RamenTycoon.Player
                 {
                     Debug.Log("[Interact] 앞에 상호작용할 대상이 없어요 (스테이션 쪽을 바라보고 가까이 가세요)");
                 }
+                else if (!RamenTycoon.Core.TutorialState.IsAllowed(Current))
+                {
+                    // 튜토리얼 중: 지금 단계의 설비가 아니면 막고 안내
+                    RamenTycoon.UI.FloatingHint.Show(RamenTycoon.Core.TutorialState.BlockedHint);
+                    RamenTycoon.Audio.AudioManager.Play("error", 0.5f);
+                }
                 else if (Current.CanInteract(hand))
                 {
                     Current.Interact(hand);
@@ -67,7 +76,11 @@ namespace RamenTycoon.Player
                 {
                     string hint = Current is Station st ? st.GetHint(hand) : null;
                     Debug.Log($"[Interact] {((Component)Current).name}: {hint ?? "지금은 상호작용할 수 없어요"}");
-                    if (!string.IsNullOrEmpty(hint)) RamenTycoon.UI.FloatingHint.Show(hint);
+                    if (!string.IsNullOrEmpty(hint))
+                    {
+                        RamenTycoon.UI.FloatingHint.Show(hint);
+                        RamenTycoon.Audio.AudioManager.Play("error", 0.5f);
+                    }
                 }
             }
         }
@@ -98,7 +111,7 @@ namespace RamenTycoon.Player
                     bestScore = score;
                     best = target;
                 }
-                if (score < bestUsableScore && target.CanInteract(hand))
+                if (score < bestUsableScore && target.CanInteract(hand) && RamenTycoon.Core.TutorialState.IsAllowed(target))
                 {
                     bestUsableScore = score;
                     bestUsable = target;

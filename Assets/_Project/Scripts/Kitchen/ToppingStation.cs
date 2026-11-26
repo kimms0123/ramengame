@@ -9,6 +9,9 @@ namespace RamenTycoon.Kitchen
     /// </summary>
     public class ToppingStation : Station
     {
+        protected override UnityEngine.Sprite DefaultSprite(Data.GameArtConfig art) => art.toppingCounter;
+        protected override float DefaultWidth => 4.49f;
+
         public override bool CanInteract(PlayerHand hand)
         {
             return ToppingScreen.Instance != null && hand.Held is Bowl bowl && bowl.IsRamen;

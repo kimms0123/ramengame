@@ -26,5 +26,12 @@ namespace RamenTycoon.UI
         }
 
         public void SetVisible(bool visible) => gameObject.SetActive(visible);
+
+        /// <summary>자동 구성용: 채움 막대 연결</summary>
+        public void SetFill(Transform f)
+        {
+            fill = f;
+            if (fill != null) fillHeight = fill.localScale.y;
+        }
     }
 }

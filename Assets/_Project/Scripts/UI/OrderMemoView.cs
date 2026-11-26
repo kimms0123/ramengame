@@ -16,10 +16,15 @@ namespace RamenTycoon.UI
     /// </summary>
     public class OrderMemoView : MonoBehaviour
     {
+        [Tooltip("\"N번 테이블 주문서\" 글자 크기")]
         [SerializeField] int titleSize = 22;
+        [Tooltip("주문 아이콘 크기")]
         [SerializeField] float iconSize = 44f;
+        [SerializeField] Color inkColor = new(0.12f, 0.08f, 0.06f);
+        [Tooltip("완성된 주문에 긋는 줄 색")]
+        [SerializeField] Color strikeColor = new(0.8f, 0.12f, 0.1f, 0.9f);
 
-        RectTransform root;
+        [SerializeField, HideInInspector] RectTransform root;
         string lastSignature;
 
         /// <summary>
@@ -29,6 +34,7 @@ namespace RamenTycoon.UI
         {
             var art = GameDatabase.Art;
             var paper = UIFactory.Image(parent, objName, art != null ? art.memoPaper : null, new Color(0.96f, 0.96f, 0.98f));
+            UIArtSlot.Attach(paper, nameof(art.memoPaper), new Color(0.96f, 0.96f, 0.98f));
             var rt = paper.rectTransform;
             rt.anchorMin = rt.anchorMax = new Vector2(topLeft.x, 1f - topLeft.y);
             rt.pivot = new Vector2(0f, 1f);
@@ -57,7 +63,7 @@ namespace RamenTycoon.UI
 
         void LateUpdate()
         {
-            if (root == null) return;
+            if (root == null) root = (RectTransform)transform;
             string sig = Signature();
             if (sig == lastSignature) return;
             lastSignature = sig;
@@ -99,7 +105,7 @@ namespace RamenTycoon.UI
 
         void CreateEntry(OrderTicket ticket, GameDatabase db)
         {
-            Color ink = ticket.Made ? new Color(0.15f, 0.1f, 0.08f, 0.45f) : new Color(0.12f, 0.08f, 0.06f);
+            Color ink = ticket.Made ? new Color(inkColor.r, inkColor.g, inkColor.b, 0.45f) : inkColor;
 
             var entry = UIFactory.Rect(root, $"T{ticket.TableNo}");
             var v = entry.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -138,7 +144,7 @@ namespace RamenTycoon.UI
                 // 완성 → 아이콘 흐리게 + 취소선
                 foreach (var img in row.GetComponentsInChildren<Image>()) img.color = new Color(img.color.r, img.color.g, img.color.b, 0.4f);
 
-                var strike = UIFactory.Image(entry, "Strike", null, new Color(0.8f, 0.12f, 0.1f, 0.9f));
+                var strike = UIFactory.Image(entry, "Strike", null, strikeColor);
                 strike.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                 var srt = strike.rectTransform;
                 srt.anchorMin = new Vector2(0f, 0.5f);

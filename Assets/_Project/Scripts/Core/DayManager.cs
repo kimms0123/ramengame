@@ -1,3 +1,4 @@
+using RamenTycoon.Audio;
 using System;
 using System.Collections.Generic;
 using RamenTycoon.Customers;
@@ -23,6 +24,7 @@ namespace RamenTycoon.Core
             public int day;
             public int revenue;
             public int ingredientCost;
+            public int upgradeCost;
             public int rent;
             public int served;
             public int lost;
@@ -41,12 +43,23 @@ namespace RamenTycoon.Core
         [Tooltip("홀 가운데 가로 통로의 y 좌표")]
         [SerializeField] float aisleY = 0.5f;
 
-        [Header("손님 외형 (이미지 없을 때)")]
+        [Header("손님")]
+        [Tooltip("손님 키 (월드 유닛). 플레이어와 비슷하게 맞추면 됨")]
         [SerializeField] float customerHeight = 1.1f;
+        [Tooltip("손님 걷는 속도")]
+        [SerializeField] float customerSpeed = 5.5f;
+
+        [Header("저장")]
+        [Tooltip("하루 시작 때와 정산 때 자동 저장 (영업 중에 나가면 이어하기로 그날 아침부터)")]
+        [SerializeField] bool autoSave = true;
 
         public DayPhase Phase { get; private set; } = DayPhase.Prep;
         public int Day { get; private set; } = 1;
         public float TimeLeft { get; private set; }
+
+        /// <summary>러시아워 중인지 (영업 마지막 rushSeconds 구간) — 배경음이 빨라짐</summary>
+        public bool InRush => Phase == DayPhase.Business && setting != null && setting.rushSeconds > 0f
+                              && cfg != null && timer >= cfg.businessSeconds - setting.rushSeconds;
         public int WaitingOutside => pendingSince.Count;
         public SettlementData LastSettlement { get; private set; }
         public EndingType Ending { get; private set; }
@@ -78,7 +91,38 @@ namespace RamenTycoon.Core
         {
             cfg = GameDatabase.Days != null ? GameDatabase.Days : ScriptableObject.CreateInstance<DayConfig>();
             generator = new OrderGenerator(Environment.TickCount);
+            Order.DefaultToppingPrice = cfg.toppingPrice;
+
+            // 타이틀에서 [이어하기]를 눌렀으면 저장된 날부터
+            var save = SaveSystem.Pending;
+            if (save != null)
+            {
+                if (Economy.Instance != null) Economy.Instance.LoadState(save.coins, save.satisfaction);
+                StartCoroutine(ClearPendingNextFrame()); // UpgradeSlots 등 다른 Start도 읽을 수 있게 한 프레임 뒤에 비움
+                if (save.day > cfg.TotalDays)
+                {
+                    // 마지막 날 정산 뒤에 껐던 경우 → 바로 엔딩
+                    Day = cfg.TotalDays;
+                    setting = cfg.Get(Day);
+                    StartCoroutine(EndingNextFrame());
+                    return;
+                }
+                BeginPrep(Mathf.Max(1, save.day));
+                return;
+            }
             BeginPrep(1);
+        }
+
+        System.Collections.IEnumerator ClearPendingNextFrame()
+        {
+            yield return null;
+            SaveSystem.ClearPending();
+        }
+
+        System.Collections.IEnumerator EndingNextFrame()
+        {
+            yield return null;
+            ShowEnding();
         }
 
         // ───────── 단계 전환 ─────────
@@ -94,6 +138,15 @@ namespace RamenTycoon.Core
                 GameFlow.Instance.ChangeState(GameState.DayPrep);
             }
             SetPhase(DayPhase.Prep, blockInput: true);
+
+            // 하루 시작 때도 저장 → 영업 중에 나가거나 창을 닫아도 이어하기로 그날 아침부터 다시 할 수 있다
+            if (autoSave) StartCoroutine(SaveDayStartNextFrame(day));
+        }
+
+        System.Collections.IEnumerator SaveDayStartNextFrame(int day)
+        {
+            yield return null; // 돈(Economy)·업그레이드(UpgradeSlots)가 Start에서 값을 다 채운 뒤에 저장
+            if (Day == day && Phase != DayPhase.Ending) SaveSystem.Save(SaveSystem.Capture(day));
         }
 
         public void StartBusiness()
@@ -136,6 +189,8 @@ namespace RamenTycoon.Core
 
         void SetPhase(DayPhase phase, bool blockInput)
         {
+            if (phase == DayPhase.Prep) AudioManager.Play("day_start");
+            else if (phase == DayPhase.Settlement) AudioManager.Play("day_end");
             Phase = phase;
             InputGate.GameplayBlocked = blockInput;
             if (GameClock.Instance != null) GameClock.Instance.Paused = blockInput;
@@ -144,14 +199,22 @@ namespace RamenTycoon.Core
 
         // ───────── 영업 ─────────
 
+        bool wasRush;
+
         void Update()
         {
+            // 러시아워 시작 알림
+            bool rush = InRush;
+            if (rush && !wasRush) AudioManager.Play("rush");
+            wasRush = rush;
+
             if (Phase == DayPhase.Business) UpdateBusiness();
             else if (Phase == DayPhase.Closing) UpdateClosing();
         }
 
         void UpdateBusiness()
         {
+            if (TutorialState.FreezeShop) return; // 튜토리얼 중: 영업 시계·새 손님 멈춤
             float dt = GameClock.DeltaTime;
             timer += dt;
             TimeLeft = Mathf.Max(0f, cfg.businessSeconds - timer);
@@ -225,14 +288,18 @@ namespace RamenTycoon.Core
                 day = Day,
                 revenue = eco != null ? eco.DayRevenue : 0,
                 ingredientCost = eco != null ? eco.DayIngredientCost : 0,
+                upgradeCost = eco != null ? eco.DayUpgradeCost : 0,
                 rent = rent,
                 served = eco != null ? eco.DayServed : 0,
                 lost = eco != null ? eco.DayLost : 0,
                 mistakes = eco != null ? eco.DayMistakes : 0,
-                net = (eco != null ? eco.DayRevenue - eco.DayIngredientCost : 0) - rent,
+                net = (eco != null ? eco.DayRevenue - eco.DayIngredientCost - eco.DayUpgradeCost : 0) - rent,
                 coinsAfter = eco != null ? eco.Coins : 0,
                 satisfaction = eco != null ? eco.Satisfaction : 0f
             };
+
+            // 자동 저장: 이어하면 다음 날 아침부터
+            if (autoSave) SaveSystem.Save(SaveSystem.Capture(Day + 1));
 
             SetPhase(DayPhase.Settlement, blockInput: true);
         }
@@ -246,6 +313,7 @@ namespace RamenTycoon.Core
             Ending = EndingEvaluator.Evaluate(coins, cfg.debt, cfg.gourmetRemain, sat, cfg.closeSatisfaction);
             EndingByLowSatisfaction = sat < cfg.closeSatisfaction;
             if (Ending != EndingType.Closed && eco != null) eco.Pay(cfg.debt); // 빚 상환
+            SaveSystem.Delete(); // 엔딩을 봤으면 다음엔 새 게임
 
             if (GameFlow.Instance != null) GameFlow.Instance.ChangeState(GameState.Ending);
             SetPhase(DayPhase.Ending, blockInput: true);
@@ -298,6 +366,7 @@ namespace RamenTycoon.Core
 
         void SpawnCustomer(Table table)
         {
+            AudioManager.Play("door", 0.8f);
             var go = new GameObject("Customer");
             var bodyGo = new GameObject("Body");
             bodyGo.transform.SetParent(go.transform, false);
@@ -337,6 +406,7 @@ namespace RamenTycoon.Core
 
             go.AddComponent<YSort>().Body = sr;
             var customer = go.AddComponent<Customer>();
+            customer.Speed = customerSpeed;
 
             Vector3 spawn = spawnPoint != null ? spawnPoint.position : new Vector3(11.5f, -9.5f, 0f);
             Vector3 door = doorPoint != null ? doorPoint.position : new Vector3(11.5f, -6.8f, 0f);
@@ -347,8 +417,10 @@ namespace RamenTycoon.Core
         {
             var db = GameDatabase.Instance;
             if (db == null || table == null) return;
-            var order = generator.Generate(db.tonkotsu, db.spicy, db.toppings, setting.spicyChance, setting.variationChance);
-            table.OnCustomerArrived(order, setting.patience);
+            setting.ToppingRules(Day, out int minKinds, out int maxKinds, out int maxCount, out float extra);
+            var order = generator.Generate(db.tonkotsu, db.spicy, db.toppings, setting.spicyChance, minKinds, maxKinds, maxCount, extra);
+            // 고명이 많은 주문은 그만큼 더 기다려 줌
+            table.OnCustomerArrived(order, setting.patience + cfg.patiencePerTopping * order.RequiredToppingCount);
         }
 
         static IEnumerable<Table> ActiveTables()

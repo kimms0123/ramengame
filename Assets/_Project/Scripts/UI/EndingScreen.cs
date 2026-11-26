@@ -12,32 +12,55 @@ namespace RamenTycoon.UI
     /// 글자가 한 글자씩 나오고, Enter / Space / 클릭으로 다음 페이지. 마지막 페이지 뒤에는 타이틀로.
     /// 이미지: GameArtConfig.endingGood / endingNormal / endingBad (없으면 그림 없이 대화 상자만)
     /// </summary>
-    public class EndingScreen : MonoBehaviour
+    [DefaultExecutionOrder(110)]
+    public class EndingScreen : BakedView
     {
         static readonly Rect ImageRect = new Rect(0.2432f, 0.0806f, 0.5135f, 0.512f);
         static readonly Rect BoxRect = new Rect(0.15f, 0.6528f, 0.7005f, 0.2833f);
 
+        [Tooltip("1초에 나오는 글자 수")]
         [SerializeField] float charsPerSecond = 40f;
 
-        RectTransform root;
-        Image picture;
-        TextMeshProUGUI body;
-        Behaviour arrow; // 그림(▼ 이미지) 또는 TMP 글자
+        [Header("엔딩 그림 (비워 두면 GameArtConfig의 Ending Good/Normal/Bad 사용)")]
+        [SerializeField] Sprite goodPicture;
+        [SerializeField] Sprite normalPicture;
+        [SerializeField] Sprite badPicture;
+
+        [Header("씬에 만들어 둔 UI (빌더가 연결, 지우지 마세요)")]
+        [SerializeField] RectTransform root;
+        [SerializeField] Button clickArea;
+        [SerializeField] Image picture;
+        [SerializeField] TextMeshProUGUI body;
+        [Tooltip("다음 페이지 표시 (▼ 그림 또는 TMP 글자)")]
+        [SerializeField] Behaviour arrow;
+
         string[] pages;
         int page;
         float shown;
         bool active;
         int openedFrame;
 
-        void Awake()
+        protected override bool IsIntact() => root != null && clickArea != null && picture != null && body != null && arrow != null;
+
+        protected override void Awake()
         {
-            var layer = UIRoot.Instance.PanelLayer;
-            var black = UIFactory.Image(layer, "Ending", null, Color.black, raycast: true);
+            base.Awake();
+            root.gameObject.SetActive(false);
+        }
+
+        protected override void Bind()
+        {
+            clickArea.onClick.AddListener(Advance);
+        }
+
+        protected override void Build()
+        {
+            var layer = Root.PanelLayer;
+            var black = Track(UIFactory.Image(layer, "Ending", null, Color.black, raycast: true));
             root = black.rectTransform;
             UIFactory.Stretch(root);
-            var click = black.gameObject.AddComponent<Button>();
-            click.transition = Selectable.Transition.None;
-            click.onClick.AddListener(Advance);
+            clickArea = black.gameObject.AddComponent<Button>();
+            clickArea.transition = Selectable.Transition.None;
 
             picture = UIFactory.Image(root, "Picture", null, Color.clear);
             UIFactory.AnchorTopLeft(picture.rectTransform, ImageRect);
@@ -45,6 +68,7 @@ namespace RamenTycoon.UI
 
             var art = GameDatabase.Art;
             var box = UIFactory.Image(root, "TextBox", art != null ? art.endingTextBox : null, new Color(0.22f, 0.22f, 0.22f, 1f));
+            UIArtSlot.Attach(box, nameof(art.endingTextBox), new Color(0.22f, 0.22f, 0.22f, 1f));
             UIFactory.AnchorTopLeft(box.rectTransform, BoxRect);
 
             body = UIFactory.Text(box.transform, "Body", "", 38, Color.white, TextAnchor.UpperLeft);
@@ -94,11 +118,29 @@ namespace RamenTycoon.UI
 
         int CurrentLength => pages[page].Length;
 
+        // ── 테스트: Play 중에 _UI의 EndingScreen 컴포넌트 ⋮ 메뉴에서 바로 엔딩 보기 ──
+        [ContextMenu("테스트: 굿 엔딩 보기 (Play 중)")]
+        void TestGood() { if (Application.isPlaying) Show(EndingType.Gourmet, false); }
+
+        [ContextMenu("테스트: 배드 엔딩 보기 (Play 중)")]
+        void TestBad() { if (Application.isPlaying) Show(EndingType.Closed, false); }
+
+        [ContextMenu("테스트: 배드 엔딩 - 만족도 부족 (Play 중)")]
+        void TestBadLow() { if (Application.isPlaying) Show(EndingType.Closed, true); }
+
+        [ContextMenu("테스트: 노멀 엔딩 보기 (Play 중)")]
+        void TestNormal() { if (Application.isPlaying) Show(EndingType.Normal, false); }
+
         void Show(EndingType type, bool lowSatisfaction)
         {
             var art = GameDatabase.Art;
-            Sprite pic = null;
-            if (art != null)
+            Sprite pic = type switch
+            {
+                EndingType.Gourmet => goodPicture,
+                EndingType.Normal => normalPicture,
+                _ => badPicture
+            };
+            if (pic == null && art != null)
             {
                 pic = type switch
                 {

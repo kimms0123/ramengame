@@ -15,8 +15,8 @@ MonoBehaviour:
   id: nori
   displayName: "\uAE40"
   category: 2
-  icon: {fileID: 4653176916216709083, guid: 0a40ab2eb29230842b5a32855d544db2, type: 3}
-  decoSprite: {fileID: 4653176916216709083, guid: 0a40ab2eb29230842b5a32855d544db2, type: 3}
+  icon: {fileID: -7792926785691794361, guid: 082fe89998f48074cbb808ab6a0ab754, type: 3}
+  decoSprite: {fileID: -7792926785691794361, guid: 082fe89998f48074cbb808ab6a0ab754, type: 3}
   placeholderColor: {r: 0.15, g: 0.17, b: 0.15, a: 1}
   cost: 0
   menuPrice: 0

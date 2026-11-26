@@ -25,6 +25,6 @@ namespace RamenTycoon.Data
         [Tooltip("걷기 애니메이션 속도 (초당 프레임)")]
         public float walkFps = 8f;
 
-        public bool IsValid => front != null && front.Length > 0;
+        public bool IsValid => front != null && front.Length > 0 && front[0] != null;
     }
 }

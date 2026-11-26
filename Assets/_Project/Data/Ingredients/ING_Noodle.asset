@@ -15,7 +15,7 @@ MonoBehaviour:
   id: noodle
   displayName: "\uBA74"
   category: 1
-  icon: {fileID: 0}
+  icon: {fileID: -1866083451423667258, guid: 602d9a4418da33c4fb9464e3d5a1c47f, type: 3}
   decoSprite: {fileID: 0}
   placeholderColor: {r: 1, g: 0.9, b: 0.45, a: 1}
   cost: 0

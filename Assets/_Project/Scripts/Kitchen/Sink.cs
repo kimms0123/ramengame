@@ -1,3 +1,4 @@
+using RamenTycoon.Audio;
 using RamenTycoon.Core;
 using RamenTycoon.Player;
 using RamenTycoon.UI;
@@ -22,6 +23,16 @@ namespace RamenTycoon.Kitchen
 
         public int DirtyQueue => dirtyQueue;
 
+        protected override Sprite DefaultSprite(Data.GameArtConfig art) => art.sink;
+        protected override float DefaultWidth => 3.83f;
+
+#if UNITY_EDITOR
+        protected override void OnEditorSetup(Data.GameArtConfig art, Vector2 size)
+        {
+            progressBar = EditorCreateProgressBar(new Vector2(size.x * 0.22f, size.y * 0.5f + 0.3f), 1.2f);
+        }
+#endif
+
         protected override void Awake()
         {
             base.Awake();
@@ -45,6 +56,7 @@ namespace RamenTycoon.Kitchen
             if (hand.IsEmpty)
             {
                 hand.Hold(ItemFactory.Instance.CreateBowl());
+                AudioManager.Play("pickup");
                 return;
             }
 
@@ -52,6 +64,7 @@ namespace RamenTycoon.Kitchen
             {
                 bool dirty = bowl.IsDirty;
                 Destroy(hand.Release().gameObject);
+                AudioManager.Play(dirty ? "wash" : "place");
                 if (dirty && washSeconds > 0f)
                 {
                     dirtyQueue++;

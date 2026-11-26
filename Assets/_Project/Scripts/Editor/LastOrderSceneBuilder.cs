@@ -47,6 +47,7 @@ namespace RamenTycoon.EditorTools
         static readonly Vector2 SinkBowlStackPos = new(-7.3f, 6.65f);
         static readonly Vector2 UrnTonkotsuPos = new(-13.35f, 1.16f);
         static readonly Vector2 UrnSpicyPos = new(-13.35f, -1.08f);
+        static readonly Vector2 TrashCanPos = new(-13.35f, -3.6f);   // 육수 통 아래 (씬에서 옮겨도 됨)
         static readonly Vector2 ToppingCounterPos = new(-6.75f, -0.74f);
         static readonly Vector2[] TablePositions = { new(1.03f, 2.06f), new(10.06f, 2.06f), new(1.03f, -3.7f), new(10.06f, -3.7f) };
         const float SeatBehindTable = 0.9f; // 손님 발 위치 = 테이블 아래끝 + 이 값 (테이블 뒤에 선 모습)
@@ -56,7 +57,10 @@ namespace RamenTycoon.EditorTools
         static readonly Vector2 PlayerStart = new(-6.21f, 1.57f);
 
         // 크기 (폭, 유닛)
+        /// <summary>카메라 크기. 9 = 맵이 화면 위아래에 꽉 참, 숫자가 클수록 검은 여백이 커짐</summary>
+        const float CameraSize = 10.4f;
         const float StoveWidth = 1.45f, NoodleBoxWidth = 1.75f, SinkWidth = 3.83f, SinkBowlStackWidth = 1.0f;
+        const float TrashCanWidth = 1.15f;
         const float UrnWidth = 1.53f, ToppingCounterWidth = 4.49f, TableWidth = 1.74f;
         const float PlayerHeight = 3.4f, CustomerHeight = 3.2f;
         const float PlayerSpeed = 7f, PlayerColliderRadius = 0.45f;
@@ -66,6 +70,19 @@ namespace RamenTycoon.EditorTools
         [MenuItem("Ramen Tycoon/Build LAST ORDER Scene")]
         public static void Build()
         {
+            Station.SuppressAutoSetup = true; // 빌더가 직접 조립하므로 컴포넌트 자동 구성은 끔
+            try { BuildInternal(); }
+            finally { Station.SuppressAutoSetup = false; }
+        }
+
+        static void BuildInternal()
+        {
+            if (File.Exists(ScenePath) && !EditorUtility.DisplayDialog("LAST ORDER 씬 다시 만들기",
+                    "이미 만든 씬이 있어요.\n\n" +
+                    "새로 만들면 Title·LastOrder 씬에서 직접 옮기거나 바꾼 것(오브젝트 위치, UI, 인스펙터 값)이 모두 기본값으로 돌아가요.\n\n" +
+                    "그림이나 수치만 바꾸려면 다시 만들 필요 없이 씬의 오브젝트나 GameArtConfig / DayConfig에서 직접 바꾸면 돼요.",
+                    "새로 만들기", "취소"))
+                return;
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             contentCache.Clear();
 
@@ -84,6 +101,9 @@ namespace RamenTycoon.EditorTools
             BuildTitleScene(art, days);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            // 새 씬을 만들면 에디터가 메모리의 에셋을 정리해서, 앞에서 읽어 둔 참조(재료·설정)가 비어 버린다
+            // → 디스크에서 다시 읽어서 쓴다 (면 상자/육수 통 재료가 None이던 원인)
+            ReloadAssets(ref art, ref days, out ing);
 
             CreateCamera();
             CreateMap(art);
@@ -115,11 +135,24 @@ namespace RamenTycoon.EditorTools
             SetFloat(dayManager, "aisleY", AisleY);
             SetFloat(dayManager, "customerHeight", CustomerHeight);
 
-            new GameObject("_UI").AddComponent<UIRoot>();
+            // UI를 씬에 미리 만들어 둔다 → Scene 화면/Hierarchy에서 직접 옮기고 고칠 수 있음
+            var uiRoot = new GameObject("_UI").AddComponent<UIRoot>();
+            uiRoot.EditorBake();
+            AssignUpgrades(uiRoot.GetComponent<UpgradePanel>(), art);
 
             CreatePlayer(art);
             CreateKitchen(art, ing, days);
             CreateHall(art, days);
+
+            // 손님 세트도 저장 직전에 한 번 더 확인 (그림 참조가 비었으면 다시 채움)
+            var custSets = new List<CharacterSpriteSet>();
+            foreach (var prefix in new[] { "cust_m", "cust_f" })
+            {
+                var set = ResolveSet(null, prefix);
+                if (set != null) custSets.Add(set);
+            }
+            if (custSets.Count > 0) art.customerSets = custSets.ToArray();
+            EditorUtility.SetDirty(art);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             SetBuildScenes(TitleScenePath, ScenePath);
@@ -136,9 +169,10 @@ namespace RamenTycoon.EditorTools
             var go = new GameObject("Main Camera") { tag = "MainCamera" };
             var cam = go.AddComponent<Camera>();
             cam.orthographic = true;
-            cam.orthographicSize = 9f;
+            // 맵(세로 18유닛)보다 조금 넓게 → 위아래에 검은 여백이 생겨서 화면이 잘려 보이지 않음
+            cam.orthographicSize = CameraSize;
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.1f, 0.06f, 0.04f);
+            cam.backgroundColor = Color.black;
             go.transform.position = new Vector3(0f, 0f, -10f);
         }
 
@@ -201,8 +235,10 @@ namespace RamenTycoon.EditorTools
             col.radius = PlayerColliderRadius;
 
             // 4방향 세트가 있으면 그 앞모습 첫 장, 없으면 예전 플레이어 이미지
-            bool hasSet = art.playerSet != null && art.playerSet.IsValid;
-            Sprite playerSprite = hasSet ? art.playerSet.front[0] : art.playerSprite;
+            var playerSet = ResolveSet(art.playerSet, "chef");
+            if (playerSet != null && art.playerSet != playerSet) { art.playerSet = playerSet; EditorUtility.SetDirty(art); }
+            bool hasSet = playerSet != null;
+            Sprite playerSprite = hasSet ? playerSet.front[0] : art.playerSprite;
 
             SpriteRenderer body;
             if (playerSprite != null)
@@ -237,7 +273,7 @@ namespace RamenTycoon.EditorTools
             if (hasSet)
             {
                 var charAnim = go.AddComponent<CharacterAnimator>();
-                SetRef(charAnim, "sprites", art.playerSet);
+                SetRef(charAnim, "sprites", playerSet);
                 SetRef(charAnim, "body", body);
             }
             else if (art.playerAnimator != null)
@@ -279,6 +315,7 @@ namespace RamenTycoon.EditorTools
             SetInt(slots, "startLevel", Mathf.Clamp(days.activeStoves, 1, stoves.Count));
             SetInt(slots, "lockedMode", (int)UpgradeSlots.LockedMode.ShowLocked);
             SetInt(slots, "debugUpgradeKey", (int)Key.F3);
+            SetString(slots, "upgradeId", "stove");
 
             // 면 상자
             var noodle = CreateStation<IngredientCrate>(kitchen, "NoodleBox", NoodleBoxPos, art.noodleBox, NoodleBoxWidth,
@@ -290,9 +327,11 @@ namespace RamenTycoon.EditorTools
                 new Vector2(3.4f, 2.2f), new Color(0.65f, 0.68f, 0.72f), out Vector2 sinkSize);
             var sinkBar = CreateProgressBar(sink.transform, new Vector2(sinkSize.x * 0.22f, sinkSize.y * 0.5f + 0.3f), 1.2f, BodyOrder(sink) + 20);
             SetRef(sink, "progressBar", sinkBar);
-            if (art.sinkBowlStack != null)
+            // 싱크대 왼쪽 빈 자리의 그릇 (그릇 더미 그림이 없으면 빈 그릇 그림으로)
+            var stackSprite = art.sinkBowlStack != null ? art.sinkBowlStack : art.bowlClean;
+            if (stackSprite != null)
             {
-                var stack = MakeSprite(sink.transform, "BowlStack", art.sinkBowlStack, Color.white, Vector2.zero, BodyOrder(sink) + 1);
+                var stack = MakeSprite(sink.transform, "BowlStack", stackSprite, Color.white, Vector2.zero, BodyOrder(sink) + 1);
                 var stackSize = FitContentWidth(stack, SinkBowlStackWidth);
                 stack.transform.position = (Vector3)(SinkBowlStackPos + Vector2.up * (stackSize.y * 0.5f)) - (Vector3)ContentCenter(stack);
             }
@@ -304,6 +343,9 @@ namespace RamenTycoon.EditorTools
             var urnS = CreateStation<BrothUrn>(kitchen, "BrothUrn_Spicy", UrnSpicyPos, art.brothUrnSpicy, UrnWidth,
                 new Vector2(1.4f, 2.3f), new Color(0.8f, 0.3f, 0.22f), out _);
             SetRef(urnS, "broth", ing.spicy);
+
+            // 쓰레기통 (잘못 만든 음식 버리기)
+            CreateTrashCan(kitchen, art);
 
             // 고명 작업대 (긴 회색 조리대)
             CreateStation<ToppingStation>(kitchen, "ToppingCounter", ToppingCounterPos, art.toppingCounter, ToppingCounterWidth,
@@ -343,6 +385,7 @@ namespace RamenTycoon.EditorTools
             }
 
             var slots = tableSlots.AddComponent<UpgradeSlots>();
+            SetString(slots, "upgradeId", "table");
             SetRefArray(slots, "slots", tables.ToArray());
             SetInt(slots, "startLevel", Mathf.Clamp(days.activeTables, 1, tables.Count));
         }
@@ -531,6 +574,27 @@ namespace RamenTycoon.EditorTools
             };
         }
 
+        static void ReloadAssets(ref GameArtConfig art, ref DayConfig days, out Ingredients ing)
+        {
+            art = AssetDatabase.LoadAssetAtPath<GameArtConfig>(DataFolder + "/GameArtConfig.asset");
+            days = AssetDatabase.LoadAssetAtPath<DayConfig>(DataFolder + "/DayConfig.asset");
+            square = AssetDatabase.LoadAssetAtPath<Sprite>(SquarePath);
+            contentCache.Clear();
+            IngredientData Load(string file) => AssetDatabase.LoadAssetAtPath<IngredientData>($"{IngredientFolder}/{file}.asset");
+            ing = new Ingredients
+            {
+                tonkotsu = Load("ING_Broth_Tonkotsu"),
+                spicy = Load("ING_Broth_Spicy"),
+                noodle = Load("ING_Noodle"),
+                chashu = Load("ING_Top_Chashu"),
+                nori = Load("ING_Top_Nori"),
+                scallion = Load("ING_Top_Scallion"),
+                egg = Load("ING_Top_Egg"),
+            };
+            if (ing.tonkotsu == null || ing.spicy == null || ing.noodle == null)
+                Debug.LogError("[LastOrderSceneBuilder] 재료 에셋을 다시 읽지 못했어요. Data/Ingredients 폴더를 확인하세요.");
+        }
+
         static IngredientData Ingredient(string file, string id, string display, IngredientCategory cat, Color color, int cost, int price, string oldDisplayName)
         {
             string path = $"{IngredientFolder}/{file}.asset";
@@ -576,33 +640,45 @@ namespace RamenTycoon.EditorTools
             if (art.decoBowlSpicy == null) art.decoBowlSpicy = FindSprite(true, "deco_bowl_spicy");
             if (art.bowlClean == null) art.bowlClean = FindSprite(true, "bowl_clean");
             if (art.bowlDirty == null) art.bowlDirty = FindSprite(true, "bowl_dirty");
+            if (art.bowlBrothTonkotsu == null) art.bowlBrothTonkotsu = FindSprite(true, "bowl_broth_tonkotsu");
+            if (art.bowlBrothSpicy == null) art.bowlBrothSpicy = FindSprite(true, "bowl_broth_spicy");
             if (art.bowlRamenTonkotsu == null) art.bowlRamenTonkotsu = FindSprite(true, "bowl_ramen_tonkotsu");
             if (art.bowlRamenSpicy == null) art.bowlRamenSpicy = FindSprite(true, "bowl_ramen_spicy");
             if (art.speechBubble == null) art.speechBubble = FindSprite(true, "speech_bubble");
             if (art.memoPaper == null) art.memoPaper = FindSprite(true, "memo_paper");
-            if (art.bellSprite == null) art.bellSprite = FindSprite(true, "bell");
+            // 고명 화면 완성 종 / 다시 버튼 (btn_bell이 있으면 항상 그걸로)
+            var bellBtn = FindSprite(true, "btn_bell");
+            if (bellBtn != null) art.bellSprite = bellBtn;
+            else if (art.bellSprite == null) art.bellSprite = FindSprite(true, "bell");
+            var returnBtn = FindSprite(true, "btn_return");
+            if (returnBtn != null) art.trashSprite = returnBtn;
+            else if (art.trashSprite == null) art.trashSprite = FindSprite(true, "trash_can");
 
             // 플레이어 (임시 펭귄) — 원본 임포트 설정은 건드리지 않는다
             if (art.playerSprite == null) art.playerSprite = FindSprite(false, "penguin_idle_01");
 
             // 4방향 캐릭터 (chef_front_0 ... / cust_m_front_0 ... / cust_f_front_0 ...)
-            if (art.playerSet == null) art.playerSet = BuildCharacterSet("chef");
-            if (art.customerSets == null || art.customerSets.Length == 0 || System.Array.TrueForAll(art.customerSets, c => c == null))
+            // 빌드할 때마다 새로 읽는다 (예전 세트에 지워진 그림이 남아 있거나 비어 있는 경우 대비)
+            var chefSet = BuildCharacterSet("chef");
+            if (chefSet != null) art.playerSet = chefSet;
+            else if (art.playerSet != null && !art.playerSet.IsValid) art.playerSet = null;
+            if (art.playerSet == null)
+                Debug.LogWarning("[LastOrderSceneBuilder] chef_front_0 그림을 못 찾아서 임시 캐릭터(펭귄)를 씁니다. Art/Characters에 chef_*.png가 있는지 확인하세요.");
+
+            var sets = new List<CharacterSpriteSet>();
+            foreach (var prefix in new[] { "cust_m", "cust_f" })
             {
-                var sets = new List<CharacterSpriteSet>();
-                foreach (var prefix in new[] { "cust_m", "cust_f" })
-                {
-                    var set = BuildCharacterSet(prefix);
-                    if (set != null) sets.Add(set);
-                }
-                art.customerSets = sets.ToArray();
+                var set = BuildCharacterSet(prefix);
+                if (set != null) sets.Add(set);
             }
+            if (sets.Count > 0) art.customerSets = sets.ToArray();
 
             // HUD / 타이틀 / 설정 / 엔딩
             if (art.hudBar == null) art.hudBar = FindSprite(true, "hud_bar");
             if (art.settingsIcon == null) art.settingsIcon = FindSprite(true, "icon_settings");
             if (art.coinIcon == null) art.coinIcon = FindSprite(true, "icon_coin");
             if (art.titleBackground == null) art.titleBackground = FindSprite(true, "title_bg");
+            if (art.titleLogo == null) art.titleLogo = FindSprite(true, "title_logo");
             if (art.titleButton == null) art.titleButton = FindSprite(true, "btn_title");
             if (art.titleStartIcon == null) art.titleStartIcon = FindSprite(true, "icon_start");
             if (art.titleExitIcon == null) art.titleExitIcon = FindSprite(true, "icon_exit");
@@ -623,6 +699,14 @@ namespace RamenTycoon.EditorTools
             if (art.endingTextBox == null) art.endingTextBox = FindSprite(true, "ending_textbox");
             if (art.endingArrow == null) art.endingArrow = FindSprite(true, "ending_arrow");
             if (art.speechBubble == null) art.speechBubble = FindSprite(true, "bubble");
+            if (art.speechBubbleTail == null) art.speechBubbleTail = FindSprite(true, "bubble_tail");
+            if (art.trashCan == null) art.trashCan = FindSprite(true, "trash_can");
+            if (art.upgradeIcon == null) art.upgradeIcon = FindSprite(true, "icon_upgrade");
+            if (art.tutorialArrow == null) art.tutorialArrow = FindSprite(true, "tutorial_arrow");
+            if (art.upgradePanel == null) art.upgradePanel = FindSprite(true, "upgrade_panel");
+            if (art.satisfactionHigh == null) art.satisfactionHigh = FindSprite(true, "face_happy");
+            if (art.satisfactionMid == null) art.satisfactionMid = FindSprite(true, "face_neutral");
+            if (art.satisfactionLow == null) art.satisfactionLow = FindSprite(true, "face_sad");
             if (art.uiFontAsset == null) art.uiFontAsset = FindFontAsset();
             if (art.endingGood == null) art.endingGood = FindSprite(true, "ending_good");
             if (art.endingNormal == null) art.endingNormal = FindSprite(true, "ending_normal");
@@ -630,6 +714,20 @@ namespace RamenTycoon.EditorTools
 
             // 주문서 종이: 내용에 맞춰 늘어나도록 9-slice 테두리 (오른쪽 아래 접힌 귀퉁이는 늘어나지 않게)
             SetBorder(art.memoPaper, new Vector4(40f, 76f, 76f, 40f));
+            if (art.speechBubble != null && art.speechBubble.name == "bubble") SetBorder(art.speechBubble, new Vector4(15f, 15f, 15f, 15f));
+            if (art.upgradePanel != null && art.upgradePanel.name == "upgrade_panel") SetBorder(art.upgradePanel, new Vector4(24f, 24f, 24f, 24f));
+            if (art.titleButton != null && art.titleButton.name == "btn_title") SetBorder(art.titleButton, new Vector4(20f, 20f, 20f, 20f));
+            UIFactory.PrepareFont(art.uiFontAsset); // 한글 깨짐 방지: Dynamic + Multi Atlas + 굵은 글씨 Fallback
+            if (art.uiFontAsset != null)
+            {
+                EditorUtility.SetDirty(art.uiFontAsset);
+                if (art.uiFontAsset.fontWeightTable != null)
+                    foreach (var pair in art.uiFontAsset.fontWeightTable)
+                    {
+                        if (pair.regularTypeface != null) EditorUtility.SetDirty(pair.regularTypeface);
+                        if (pair.italicTypeface != null) EditorUtility.SetDirty(pair.italicTypeface);
+                    }
+            }
             // 예전 기본값(고명 화면 왼쪽)이면 시안 위치(오른쪽)로
             if (art.memoRect.x < 0.5f) art.memoRect = new Rect(0.8031f, 0.3509f, 0.1708f, 0.3028f);
             if (art.playerAnimator == null) art.playerAnimator = FindController("PlayerAnimator");
@@ -798,6 +896,7 @@ namespace RamenTycoon.EditorTools
         static void BuildTitleScene(GameArtConfig art, DayConfig days)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            ReloadAssets(ref art, ref days, out _);
 
             var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
             var cam = camGo.AddComponent<Camera>();
@@ -811,9 +910,200 @@ namespace RamenTycoon.EditorTools
             db.art = art;
             db.dayConfig = days;
 
-            new GameObject("_Title").AddComponent<TitleScreen>();
+            var title = new GameObject("_Title").AddComponent<TitleScreen>();
+            title.Rebuild();
+            SettingsPanel.Bake(title.PanelLayer);
+            UIRoot.EnsureEventSystem();
 
             EditorSceneManager.SaveScene(scene, TitleScenePath);
+        }
+
+        /// <summary>업그레이드 항목 에셋(Data/Upgrades/UPG_Stove)을 만들고 업그레이드 창 목록에 넣는다</summary>
+        static void AssignUpgrades(UpgradePanel panel, GameArtConfig art)
+        {
+            if (panel == null) return;
+            EnsureFolder(DataFolder + "/Upgrades");
+            string path = DataFolder + "/Upgrades/UPG_Stove.asset";
+            var stove = AssetDatabase.LoadAssetAtPath<UpgradeData>(path);
+            if (stove == null)
+            {
+                stove = ScriptableObject.CreateInstance<UpgradeData>();
+                stove.id = "stove";
+                stove.displayName = "화구 추가";
+                stove.description = "화구를 하나 더 놓아서 면을 동시에 삶을 수 있어요.";
+                stove.costs = new[] { 70, 140 };
+                AssetDatabase.CreateAsset(stove, path);
+            }
+            if (stove.icon == null && art != null) { stove.icon = art.stove; EditorUtility.SetDirty(stove); }
+            AssetDatabase.SaveAssets();
+            stove = AssetDatabase.LoadAssetAtPath<UpgradeData>(path);
+            SetRefArray(panel, "upgrades", new Object[] { stove });
+        }
+
+        static TrashCan CreateTrashCan(Transform parent, GameArtConfig art)
+        {
+            return CreateStation<TrashCan>(parent, "TrashCan", TrashCanPos, art.trashCan, TrashCanWidth,
+                new Vector2(1.1f, 1.3f), new Color(0.5f, 0.52f, 0.56f), out _);
+        }
+
+        /// <summary>지금 열린 LastOrder 씬에 쓰레기통만 추가 (씬을 새로 만들지 않아서 직접 옮긴 배치가 그대로 남음)</summary>
+        [MenuItem("Ramen Tycoon/Add Trash Can to Open Scene")]
+        public static void AddTrashCanToOpenScene()
+        {
+            if (Object.FindAnyObjectByType<TrashCan>() != null)
+            {
+                EditorUtility.DisplayDialog("쓰레기통 추가", "이 씬에는 이미 쓰레기통이 있어요.", "확인");
+                return;
+            }
+            var db = Object.FindAnyObjectByType<GameDatabase>();
+            if (db == null || db.art == null)
+            {
+                EditorUtility.DisplayDialog("쓰레기통 추가", "LastOrder 씬을 열고 실행해 주세요. (_Systems의 GameDatabase가 필요해요)", "확인");
+                return;
+            }
+
+            square = GetOrCreateSquare();
+            contentCache.Clear();
+            var art = db.art;
+            if (art.trashCan == null)
+            {
+                art.trashCan = FindSprite(true, "trash_can");
+                EditorUtility.SetDirty(art);
+            }
+
+            var kitchen = GameObject.Find("Kitchen");
+            TrashCan trash;
+            Station.SuppressAutoSetup = true;
+            try { trash = CreateTrashCan(kitchen != null ? kitchen.transform : null, art); }
+            finally { Station.SuppressAutoSetup = false; }
+            Selection.activeGameObject = trash.gameObject;
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            Debug.Log("[LastOrderSceneBuilder] 쓰레기통을 추가했어요. 원하는 곳으로 옮긴 뒤 Ctrl+S로 저장하세요.");
+        }
+
+        /// <summary>
+        /// 씬은 그대로 두고 GameArtConfig의 빈 칸만 Art 폴더의 그림 이름으로 다시 채운다.
+        /// (이미 넣어 둔 칸은 건드리지 않음) 재료 아이콘·캐릭터 세트·폰트도 같이 채운다.
+        /// </summary>
+        [MenuItem("Ramen Tycoon/Auto-Assign Art (fill empty slots)")]
+        public static void AutoAssignArtMenu()
+        {
+            var db = Object.FindAnyObjectByType<GameDatabase>();
+            var art = db != null && db.art != null && AssetDatabase.Contains(db.art)
+                ? db.art
+                : GetOrCreateAsset<GameArtConfig>(DataFolder + "/GameArtConfig.asset");
+
+            contentCache.Clear();
+            square = GetOrCreateSquare();
+            var ing = CreateIngredients();
+            AutoAssignArt(art, ing);
+            EditorUtility.SetDirty(art);
+            AssetDatabase.SaveAssets();
+
+            if (db != null && db.art != art)
+            {
+                db.art = art;
+                EditorUtility.SetDirty(db);
+                EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            }
+            EditorGUIUtility.PingObject(art);
+            Selection.activeObject = art;
+            Debug.Log($"[LastOrderSceneBuilder] GameArtConfig 빈 칸을 채웠어요: {AssetDatabase.GetAssetPath(art)}\n{MissingArtReport(art, ing)}");
+        }
+
+        /// <summary>
+        /// 지금 열린 LastOrder 씬에 새로 생긴 UI(예: 업그레이드 창)만 추가한다.
+        /// 이미 만들어 둔 UI는 건드리지 않아서 직접 고친 위치·글자·그림이 그대로 남는다.
+        /// </summary>
+        [MenuItem("Ramen Tycoon/Add New UI to Open Scene (keep my edits)")]
+        public static void AddMissingUI()
+        {
+            var ui = Object.FindAnyObjectByType<UIRoot>();
+            if (ui == null)
+            {
+                EditorUtility.DisplayDialog("새 UI 추가", "_UI(UIRoot)가 있는 LastOrder 씬을 열어 주세요.", "확인");
+                return;
+            }
+            int added = ui.EditorBakeMissing();
+            var db = Object.FindAnyObjectByType<GameDatabase>();
+            var panel = ui.GetComponent<UpgradePanel>();
+            var so = panel != null ? new SerializedObject(panel) : null;
+            var list = so != null ? so.FindProperty("upgrades") : null;
+            if (list != null && list.arraySize == 0) AssignUpgrades(panel, db != null ? db.art : null);
+
+            // 화구/테이블 묶음에 업그레이드 id 연결
+            foreach (var slots in Object.FindObjectsByType<UpgradeSlots>(FindObjectsInactive.Include))
+            {
+                var p = Prop(slots, "upgradeId", out var sso);
+                if (p != null && string.IsNullOrEmpty(p.stringValue))
+                {
+                    p.stringValue = slots.UpgradeId;
+                    sso.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
+
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            Debug.Log($"[LastOrderSceneBuilder] 새 UI {added}개를 추가했어요. 기존 UI는 그대로예요. Ctrl+S로 씬을 저장하세요.");
+        }
+
+        /// <summary>Hierarchy에서 선택한 UI가 속한 화면 하나만 기본 모양으로 다시 만든다 (다른 UI는 그대로)</summary>
+        [MenuItem("Ramen Tycoon/Rebuild Selected UI Only")]
+        public static void RebuildSelectedUI()
+        {
+            var sel = Selection.activeTransform;
+            BakedView target = null;
+            if (sel != null)
+            {
+                foreach (var v in Object.FindObjectsByType<BakedView>(FindObjectsInactive.Include))
+                    if (v.Owns(sel) || v.transform == sel) { target = v; if (v.Owns(sel)) break; }
+            }
+            if (target == null)
+            {
+                EditorUtility.DisplayDialog("선택한 UI 다시 만들기",
+                    "Hierarchy에서 다시 만들 UI 오브젝트를 하나 선택하고 실행해 주세요.\n(예: UpgradeDim, TopBar, ToppingScreen …)", "확인");
+                return;
+            }
+            if (!EditorUtility.DisplayDialog("선택한 UI 다시 만들기",
+                    $"'{target.GetType().Name}' 화면만 기본 모양으로 다시 만들어요.\n이 화면에서 직접 고친 위치·글자·그림은 사라지고, 다른 UI는 그대로예요.",
+                    "다시 만들기", "취소"))
+                return;
+
+            target.Rebuild();
+            if (target is UpgradePanel up)
+            {
+                var db = Object.FindAnyObjectByType<GameDatabase>();
+                var so = new SerializedObject(up);
+                var list = so.FindProperty("upgrades");
+                if (list != null && list.arraySize == 0) AssignUpgrades(up, db != null ? db.art : null);
+            }
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            Debug.Log($"[LastOrderSceneBuilder] {target.GetType().Name}을(를) 다시 만들었어요. Ctrl+S로 저장하세요.");
+        }
+
+        /// <summary>지금 열린 씬(LastOrder 또는 Title)의 UI만 기본 모양으로 다시 만든다. 월드 오브젝트 배치는 그대로.</summary>
+        [MenuItem("Ramen Tycoon/Rebuild UI in Open Scene")]
+        public static void RebuildUIInOpenScene()
+        {
+            var ui = Object.FindAnyObjectByType<UIRoot>();
+            var title = Object.FindAnyObjectByType<TitleScreen>();
+            if (ui == null && title == null)
+            {
+                EditorUtility.DisplayDialog("UI 다시 만들기", "_UI(UIRoot) 또는 _Title(TitleScreen)이 있는 씬을 열어 주세요.", "확인");
+                return;
+            }
+            if (!EditorUtility.DisplayDialog("UI 다시 만들기",
+                    "지금 열린 씬의 UI를 기본 모양으로 다시 만들어요.\nUI에서 직접 옮기거나 바꾼 위치·글자·그림은 사라져요. (맵, 설비, 플레이어 배치는 그대로)",
+                    "다시 만들기", "취소"))
+                return;
+
+            if (ui != null) ui.EditorBake();
+            if (title != null)
+            {
+                title.Rebuild();
+                SettingsPanel.Bake(title.PanelLayer);
+            }
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            Debug.Log("[LastOrderSceneBuilder] UI를 다시 만들었어요. Ctrl+S로 씬을 저장하세요.");
         }
 
         /// <summary>Build Settings: 0번 타이틀, 1번 게임 (나머지 씬은 뒤에 유지)</summary>
@@ -845,6 +1135,24 @@ namespace RamenTycoon.EditorTools
             EditorUtility.SetDirty(set);
             Debug.Log($"[LastOrderSceneBuilder] 캐릭터 세트 {prefix}: 앞 {set.front.Length} / 뒤 {set.back.Length} / 옆 {set.side.Length}장");
             return set;
+        }
+
+        /// <summary>
+        /// 씬을 새로 만들면(NewScene) 에디터가 메모리의 에셋을 정리하면서 세트의 그림 참조가 비는 경우가 있어
+        /// 플레이어를 만들기 직전에 디스크에서 다시 읽고, 그래도 비어 있으면 그림을 다시 찾아 채운다.
+        /// </summary>
+        static CharacterSpriteSet ResolveSet(CharacterSpriteSet set, string prefix)
+        {
+            if (set != null && set.IsValid) return set;
+
+            var fromDisk = AssetDatabase.LoadAssetAtPath<CharacterSpriteSet>($"{CharacterFolder}/Set_{prefix}.asset");
+            if (fromDisk != null && fromDisk.IsValid) return fromDisk;
+
+            var rebuilt = BuildCharacterSet(prefix);
+            if (rebuilt != null && rebuilt.IsValid) { AssetDatabase.SaveAssets(); return rebuilt; }
+
+            Debug.LogWarning($"[LastOrderSceneBuilder] {prefix} 세트를 못 만들었어요 (front 그림 없음) → 임시 캐릭터를 씁니다.");
+            return null;
         }
 
         static Sprite[] LoadFrames(string prefix, string dir)
@@ -890,6 +1198,8 @@ namespace RamenTycoon.EditorTools
                 var f = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>(path);
                 if (f == null) continue;
                 string n = Path.GetFileNameWithoutExtension(path).ToLowerInvariant();
+                if (n.Contains("bold")) continue;                  // 굵은 글씨용은 기본 폰트의 Font Weights에 연결해서 씀
+                if (n.StartsWith("galmuri11 ") || n == "galmuri11 sdf") return f;
                 if (n.Contains("ui") || n.Contains("font")) return f;
                 if (first == null) first = f;
             }
@@ -927,6 +1237,14 @@ namespace RamenTycoon.EditorTools
             if (prop == null) return;
             prop.arraySize = values.Length;
             for (int i = 0; i < values.Length; i++) prop.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static void SetString(Object target, string field, string value)
+        {
+            var prop = Prop(target, field, out var so);
+            if (prop == null) return;
+            prop.stringValue = value;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

@@ -1,3 +1,4 @@
+using RamenTycoon.Audio;
 using RamenTycoon.Core;
 using RamenTycoon.Customers;
 using RamenTycoon.Logic;
@@ -24,6 +25,30 @@ namespace RamenTycoon.Kitchen
         float patience = 60f;
 
         public int TableNo => tableNo;
+
+        protected override Sprite DefaultSprite(Data.GameArtConfig art) => art.table;
+        protected override float DefaultWidth => 1.74f;
+
+#if UNITY_EDITOR
+        protected override void OnEditorSetup(Data.GameArtConfig art, Vector2 size)
+        {
+            // 테이블 번호: 씬에 있는 다른 테이블과 겹치지 않게 다음 번호
+            int max = 0;
+            foreach (var t in FindObjectsByType<Table>(FindObjectsInactive.Include))
+                if (t != this) max = Mathf.Max(max, t.tableNo);
+            tableNo = max + 1;
+            name = $"Table_{tableNo}";
+
+            // 손님 자리: 테이블 아래끝보다 조금 위 (테이블이 손님 앞에 그려짐)
+            if (seatPoint == null)
+            {
+                var s = transform.Find("Seat");
+                seatPoint = s != null ? s : new GameObject("Seat").transform;
+                seatPoint.SetParent(transform, false);
+            }
+            seatPoint.localPosition = new Vector3(0f, -size.y * 0.5f + 0.9f, 0f);
+        }
+#endif
         public TableState State { get; private set; } = TableState.Empty;
         public bool IsFree => State == TableState.Empty && isActiveAndEnabled;
         public Vector3 SeatPosition => seatPoint != null ? seatPoint.position : transform.position + Vector3.down;
@@ -126,6 +151,8 @@ namespace RamenTycoon.Kitchen
             State = TableState.Eating;
 
             if (customer != null) customer.ShowMood(score);
+            AudioManager.Play(acc >= 0.999f ? "serve_good" : "serve_bad");
+            if (pay > 0) AudioManager.Play("coin", 0.8f);
             GameEvents.RaiseRamenServed(served);
             GameEvents.RaiseCustomerServed(tableNo, score, pay);
             Debug.Log($"[Table {tableNo}] 서빙: 정확도 {acc:P0}, 점수 {score:0}, +{pay}C");
@@ -136,6 +163,7 @@ namespace RamenTycoon.Kitchen
             hand.Hold(bowl);
             bowl = null;
             State = TableState.Empty;
+            AudioManager.Play("pickup");
         }
 
         // ───────── 시간 ─────────
@@ -149,6 +177,7 @@ namespace RamenTycoon.Kitchen
                     break;
 
                 case TableState.WaitingFood:
+                    if (TutorialState.FreezeShop) break; // 튜토리얼 중엔 손님이 기다려 줌
                     timer += GameClock.DeltaTime;
                     if (timer >= patience) GiveUp();
                     break;
@@ -168,6 +197,7 @@ namespace RamenTycoon.Kitchen
             if (customer != null) customer.Leave(true);
             customer = null;
             State = TableState.Empty;
+            AudioManager.Play("angry");
             GameEvents.RaiseCustomerLost(tableNo);
             Debug.Log($"[Table {tableNo}] 손님이 기다리다 나갔어요");
         }

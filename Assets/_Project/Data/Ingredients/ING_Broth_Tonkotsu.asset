@@ -15,7 +15,7 @@ MonoBehaviour:
   id: tonkotsu
   displayName: "\uB3C8\uCF54\uCE20"
   category: 0
-  icon: {fileID: 0}
+  icon: {fileID: 5809342946935290481, guid: e2d5e7d2adec6ee4c846c88746e6348c, type: 3}
   decoSprite: {fileID: 0}
   placeholderColor: {r: 0.93, g: 0.85, b: 0.68, a: 1}
   cost: 11

@@ -79,6 +79,16 @@ namespace RamenTycoon.Data
         [Header("UI 공통")]
         [Tooltip("머리 위 말풍선 배경 (9-slice 권장)")]
         public Sprite speechBubble;
+        [Tooltip("HUD 오른쪽 아래 업그레이드 버튼 (icon_upgrade)")]
+        public Sprite upgradeIcon;
+        [Tooltip("업그레이드 창 배경 (upgrade_panel, 9-slice)")]
+        public Sprite upgradePanel;
+        [Tooltip("튜토리얼에서 설비를 가리키는 화살표 (tutorial_arrow, 아래를 가리키는 그림)")]
+        public Sprite tutorialArrow;
+        [Tooltip("주방 쓰레기통 (trash_can)")]
+        public Sprite trashCan;
+        [Tooltip("말풍선 아래 가운데 꼬리 (bubble_tail)")]
+        public Sprite speechBubbleTail;
         [Tooltip("빌지 종이")]
         public Sprite memoPaper;
         public Sprite hudPanel;
@@ -88,6 +98,12 @@ namespace RamenTycoon.Data
         public Sprite coinIcon;
         public Sprite clockIcon;
         public Sprite heartIcon;
+        [Tooltip("만족도 높음 얼굴 (face_happy)")]
+        public Sprite satisfactionHigh;
+        [Tooltip("만족도 보통 얼굴 (face_neutral)")]
+        public Sprite satisfactionMid;
+        [Tooltip("만족도 낮음 얼굴 (face_sad)")]
+        public Sprite satisfactionLow;
         public Sprite patienceBarBack;
         public Sprite patienceBarFill;
         public Sprite dirtyIcon;
@@ -101,6 +117,8 @@ namespace RamenTycoon.Data
         [Header("타이틀 화면 (글자는 TMP로 얹음 → 이미지에는 글자 없이)")]
         [Tooltip("버튼이 없는 가게 배경 1920x1080")]
         public Sprite titleBackground;
+        [Tooltip("타이틀 로고 그림 (title_logo). 비어 있으면 'LAST ORDER'를 TMP 글자로 그린다")]
+        public Sprite titleLogo;
         [Tooltip("버튼 틀 (시작하기/나가기 공통, 글자·아이콘 없이)")]
         public Sprite titleButton;
         [Tooltip("시작하기 버튼 왼쪽 아이콘 (재생 삼각형)")]

@@ -31,7 +31,23 @@ namespace RamenTycoon.Logic
             }
         }
 
-        public int Price => Broth != null ? Broth.menuPrice : 0;
+        /// <summary>고명 Menu Price가 0일 때 쓰는 고명 1개 가격 (DayManager가 DayConfig 값으로 설정)</summary>
+        public static int DefaultToppingPrice = 3;
+
+        /// <summary>라멘 값 = 육수 가격 + 고명 개수만큼 (고명이 많을수록 비쌈)</summary>
+        public int Price
+        {
+            get
+            {
+                int price = Broth != null ? Broth.menuPrice : 0;
+                foreach (var kv in toppings)
+                {
+                    int each = kv.Key != null && kv.Key.menuPrice > 0 ? kv.Key.menuPrice : DefaultToppingPrice;
+                    price += each * kv.Value;
+                }
+                return price;
+            }
+        }
 
         /// <summary>"돈코츠 · 차슈×2 · 김 · 파" 형태</summary>
         public string Describe(IReadOnlyList<IngredientData> toppingOrder = null)

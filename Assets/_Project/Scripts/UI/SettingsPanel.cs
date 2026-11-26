@@ -1,3 +1,4 @@
+using RamenTycoon.Audio;
 using System;
 using RamenTycoon.Core;
 using TMPro;
@@ -14,6 +15,7 @@ namespace RamenTycoon.UI
     /// - 슬라이더를 움직이면 바로 미리보기, [적용]을 눌러야 저장
     /// - [닫기] / X / Esc: 저장하지 않은 변경은 버리고 닫기
     /// - [기본값]: 70% / 80% / 켜짐 (적용을 눌러야 저장)
+    /// 씬 빌더가 PanelLayer 아래에 미리 만들어 둔다(꺼진 상태) → Hierarchy에서 SettingsDim을 켜면 Scene 화면에서 편집 가능.
     /// </summary>
     public class SettingsPanel : MonoBehaviour
     {
@@ -53,30 +55,102 @@ namespace RamenTycoon.UI
         static readonly Color FillRed = new(0.70f, 0.30f, 0.19f);
         static readonly Color Outline = new(0.17f, 0.13f, 0.1f);
 
-        Slider bgm, sfx;
-        TextMeshProUGUI bgmText, sfxText, fullLabel;
-        Image check;
+        [Header("씬에 만들어 둔 UI (빌더가 연결, 지우지 마세요)")]
+        [SerializeField] RectTransform root;
+        [SerializeField] RectTransform panel;
+        [SerializeField] Slider bgm;
+        [SerializeField] Slider sfx;
+        [SerializeField] TextMeshProUGUI bgmText;
+        [SerializeField] TextMeshProUGUI sfxText;
+        [SerializeField] TextMeshProUGUI fullLabel;
+        [SerializeField] Button checkButton;
+        [SerializeField] Image check;
+        [SerializeField] Button closeXButton;
+        [SerializeField] Button defaultButton;
+        [SerializeField] Button applyButton;
+        [Tooltip("아래 오른쪽 버튼: 게임 중엔 '메인화면으로'(두 번 눌러야 이동), 메인화면에선 '닫기'")]
+        [SerializeField] Button closeButton;
+
+        [Header("아래 오른쪽 버튼")]
+        [SerializeField] string toTitleLabel = "메인화면으로";
+        [SerializeField] string toTitleConfirmLabel = "정말 나갈까요?";
+        [SerializeField] string closeLabel = "닫기";
+        [Tooltip("'정말 나갈까요?' 상태가 유지되는 시간 (초)")]
+        [SerializeField] float confirmSeconds = 2.5f;
+
         bool fullscreen;
+        bool bound;
+        float quitArmTimer;
+        TextMeshProUGUI quitText;
         Action onClosed;
-        RectTransform root;
-        RectTransform panel;
 
         public static bool IsOpen { get; private set; }
 
-        /// <summary>parent 위에 설정 창을 띄운다 (뒤는 어둡게, 클릭 막음).</summary>
+        bool IsIntact() =>
+            root != null && panel != null && bgm != null && sfx != null && bgmText != null && sfxText != null && fullLabel != null &&
+            checkButton != null && check != null && closeXButton != null && defaultButton != null && applyButton != null && closeButton != null;
+
+        /// <summary>parent 위에 설정 창을 띄운다 (뒤는 어둡게, 클릭 막음). 씬에 만들어 둔 창이 있으면 그걸 쓴다.</summary>
         public static SettingsPanel Open(RectTransform parent, Action closed)
         {
-            if (IsOpen) return null;
+            if (IsOpen || parent == null) return null;
             GameSettings.Load();
 
-            var dim = UIFactory.Image(parent, "SettingsDim", null, new Color(0f, 0f, 0f, 0.55f), raycast: true);
+            var p = parent.GetComponentInChildren<SettingsPanel>(true);
+            if (p != null && !p.IsIntact())
+            {
+                Debug.LogWarning("[SettingsPanel] 씬의 설정 창에서 꼭 필요한 오브젝트가 지워져서 기본 모양으로 다시 만들어요.");
+                UIFactory.DestroySafe(p.gameObject);
+                p = null;
+            }
+            if (p == null) p = Create(parent);
+            p.Show(closed);
+            return p;
+        }
+
+        /// <summary>씬 빌더용: parent 아래에 설정 창을 새로 만들어 꺼 둔다 (기존 창은 지움)</summary>
+        public static SettingsPanel Bake(RectTransform parent)
+        {
+            foreach (var old in parent.GetComponentsInChildren<SettingsPanel>(true)) UIFactory.DestroySafe(old.gameObject);
+            var p = Create(parent);
+            p.root.gameObject.SetActive(false);
+            return p;
+        }
+
+        static SettingsPanel Create(RectTransform parent)
+        {
+            var dim = UIFactory.Image(parent, "SettingsDim (설정 창)", null, new Color(0f, 0f, 0f, 0.55f), raycast: true);
             UIFactory.Stretch(dim.rectTransform);
             var p = dim.gameObject.AddComponent<SettingsPanel>();
             p.root = dim.rectTransform;
-            p.onClosed = closed;
             p.Build();
-            IsOpen = true;
             return p;
+        }
+
+        void Show(Action closed)
+        {
+            onClosed = closed;
+            BindOnce();
+            root.gameObject.SetActive(true);
+            root.SetAsLastSibling();
+            ResetQuit(); // 버튼 글자: 게임 중 '메인화면으로' / 메인화면 '닫기'
+            AudioManager.Play("ui_open");
+            SetValues(GameSettings.Bgm, GameSettings.Sfx, GameSettings.Fullscreen);
+            IsOpen = true;
+        }
+
+        void BindOnce()
+        {
+            if (bound) return;
+            bound = true;
+            bgm.onValueChanged.AddListener(_ => RefreshTexts());
+            sfx.onValueChanged.AddListener(_ => RefreshTexts());
+            checkButton.onClick.AddListener(() => { fullscreen = !fullscreen; RefreshTexts(); });
+            closeXButton.onClick.AddListener(Close);
+            defaultButton.onClick.AddListener(() => SetValues(GameSettings.DefaultBgm, GameSettings.DefaultSfx, GameSettings.DefaultFullscreen));
+            applyButton.onClick.AddListener(() => GameSettings.Apply(bgm.value, sfx.value, fullscreen));
+            closeButton.onClick.AddListener(OnBottomButton);
+            quitText = closeButton.GetComponentInChildren<TextMeshProUGUI>(true);
         }
 
         void Build()
@@ -88,18 +162,19 @@ namespace RamenTycoon.UI
             var panelImg = UIFactory.Image(root, "Panel", bg, PanelBrown, raycast: true);
             UIFactory.Place(panelImg.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(PanelWidth, PanelWidth * H / W));
             panel = panelImg.rectTransform;
-            if (bg == null) BuildFallbackBackground();
+            var fallbackBg = bg == null ? BuildFallbackBackground() : new GameObject[0];
+            UIArtSlot.Attach(panelImg, nameof(art.settingsPanel), PanelBrown, fallbackBg);
 
             // 제목 줄
-            Picture(art != null ? art.settingsTitleIcon : null, TitleIcon, "TitleIcon");
+            Picture(art != null ? art.settingsTitleIcon : null, TitleIcon, "TitleIcon", nameof(art.settingsTitleIcon));
             var title = Label(TitleText, "설정", 60, TextAnchor.MiddleCenter, Cream);
             title.characterSpacing = 4f;
-            ImageButton(BtnX, art != null ? art.settingsButtonX : null, new Color(0.73f, 0.27f, 0.17f), "×", Cream, 56, Close);
+            closeXButton = ImageButton(BtnX, art != null ? art.settingsButtonX : null, nameof(art.settingsButtonX), new Color(0.73f, 0.27f, 0.17f), "×", Cream, 56);
 
             // 항목 3줄
-            Picture(art != null ? art.settingsSoundIcon : null, Icon1, "SoundIcon1");
-            Picture(art != null ? art.settingsSoundIcon : null, Icon2, "SoundIcon2");
-            Picture(art != null ? art.settingsScreenIcon : null, Icon3, "ScreenIcon");
+            Picture(art != null ? art.settingsSoundIcon : null, Icon1, "SoundIcon1", nameof(art.settingsSoundIcon));
+            Picture(art != null ? art.settingsSoundIcon : null, Icon2, "SoundIcon2", nameof(art.settingsSoundIcon));
+            Picture(art != null ? art.settingsScreenIcon : null, Icon3, "ScreenIcon", nameof(art.settingsScreenIcon));
             Label(Label1, "배경음", 46, TextAnchor.MiddleLeft, Ink);
             Label(Label2, "효과음", 46, TextAnchor.MiddleLeft, Ink);
             Label(Label3, "전체 화면", 46, TextAnchor.MiddleLeft, Ink);
@@ -108,16 +183,13 @@ namespace RamenTycoon.UI
             sfx = CreateSlider(Track2, art);
             bgmText = Label(Pct1, "", 42, TextAnchor.MiddleCenter, Ink);
             sfxText = Label(Pct2, "", 42, TextAnchor.MiddleCenter, Ink);
-            bgm.onValueChanged.AddListener(_ => RefreshTexts());
-            sfx.onValueChanged.AddListener(_ => RefreshTexts());
 
             // 전체 화면 체크
-            var boxImg = Picture(art != null ? art.settingsCheckbox : null, CheckBox, "CheckBox", fallback: new Color(1f, 0.96f, 0.86f));
+            var boxImg = Picture(art != null ? art.settingsCheckbox : null, CheckBox, "CheckBox", nameof(art.settingsCheckbox), fallback: new Color(1f, 0.96f, 0.86f));
             boxImg.raycastTarget = true;
             if (art == null || art.settingsCheckbox == null) boxImg.gameObject.AddComponent<UnityEngine.UI.Outline>().effectColor = Outline;
-            var boxBtn = boxImg.gameObject.AddComponent<Button>();
-            boxBtn.targetGraphic = boxImg;
-            boxBtn.onClick.AddListener(() => { fullscreen = !fullscreen; RefreshTexts(); });
+            checkButton = boxImg.gameObject.AddComponent<Button>();
+            checkButton.targetGraphic = boxImg;
             check = UIFactory.Image(boxImg.transform, "Check", art != null ? art.settingsCheck : null, FillRed);
             check.preserveAspect = true;
             UIFactory.Stretch(check.rectTransform);
@@ -126,20 +198,59 @@ namespace RamenTycoon.UI
                 check.rectTransform.offsetMin = new Vector2(12f, 12f);
                 check.rectTransform.offsetMax = new Vector2(-12f, -12f);
             }
+            UIArtSlot.Attach(check, nameof(art.settingsCheck), FillRed);
             fullLabel = Label(CheckLabel, "", 42, TextAnchor.MiddleLeft, Ink);
 
             // 아래 버튼 3개
-            ImageButton(BtnDefault, art != null ? art.settingsButtonDefault : null, new Color(0.86f, 0.6f, 0.36f), "기본값", Ink, 44,
-                () => SetValues(GameSettings.DefaultBgm, GameSettings.DefaultSfx, GameSettings.DefaultFullscreen));
-            ImageButton(BtnApply, art != null ? art.settingsButtonApply : null, new Color(0.69f, 0.42f, 0.26f), "적용", Ink, 44,
-                () => GameSettings.Apply(bgm.value, sfx.value, fullscreen));
-            ImageButton(BtnClose, art != null ? art.settingsButtonClose : null, new Color(0.73f, 0.27f, 0.17f), "닫기", Cream, 44, Close);
+            defaultButton = ImageButton(BtnDefault, art != null ? art.settingsButtonDefault : null, nameof(art.settingsButtonDefault), new Color(0.86f, 0.6f, 0.36f), "기본값", Ink, 44);
+            applyButton = ImageButton(BtnApply, art != null ? art.settingsButtonApply : null, nameof(art.settingsButtonApply), new Color(0.69f, 0.42f, 0.26f), "적용", Ink, 44);
+            closeButton = ImageButton(BtnClose, art != null ? art.settingsButtonClose : null, nameof(art.settingsButtonClose), new Color(0.73f, 0.27f, 0.17f), toTitleLabel, Cream, 40);
 
             SetValues(GameSettings.Bgm, GameSettings.Sfx, GameSettings.Fullscreen);
         }
 
+        /// <summary>게임 씬인지 (메인화면이면 false)</summary>
+        static bool InGame => DayManager.Instance != null;
+
+        /// <summary>
+        /// 게임 중: 메인화면으로 (진행이 사라지므로 두 번 눌러야 이동)
+        /// 메인화면: 설정 창 닫기 (게임 종료는 메인화면의 '나가기' 버튼)
+        /// </summary>
+        void OnBottomButton()
+        {
+            if (!InGame)
+            {
+                Close();
+                return;
+            }
+            if (quitArmTimer <= 0f)
+            {
+                quitArmTimer = confirmSeconds;
+                if (quitText != null) quitText.text = toTitleConfirmLabel;
+                return;
+            }
+
+            // 창을 닫는 콜백(일시정지 해제 등)은 부르지 않고 바로 메인화면으로
+            IsOpen = false;
+            onClosed = null;
+            root.gameObject.SetActive(false);
+            DayManager.Instance.GoToTitle();
+        }
+
+        void ResetQuit()
+        {
+            quitArmTimer = 0f;
+            if (quitText != null) quitText.text = InGame ? toTitleLabel : closeLabel;
+        }
+
         void Update()
         {
+            if (quitArmTimer > 0f)
+            {
+                quitArmTimer -= Time.unscaledDeltaTime;
+                if (quitArmTimer <= 0f) ResetQuit();
+            }
+
             var kb = Keyboard.current;
             if (kb != null && kb.escapeKey.wasPressedThisFrame && UIFactory.EscConsumedFrame != Time.frameCount)
             {
@@ -168,11 +279,18 @@ namespace RamenTycoon.UI
         {
             if (!IsOpen) return;
             IsOpen = false;
-            Destroy(root.gameObject);
-            onClosed?.Invoke();
+            ResetQuit();
+            AudioManager.Play("ui_close");
+            root.gameObject.SetActive(false);
+            var callback = onClosed;
+            onClosed = null;
+            callback?.Invoke();
         }
 
-        void OnDestroy() => IsOpen = false;
+        void OnDestroy()
+        {
+            if (root != null && root.gameObject.activeSelf) IsOpen = false;
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => IsOpen = false;
@@ -197,11 +315,12 @@ namespace RamenTycoon.UI
             return t;
         }
 
-        Image Picture(Sprite sprite, Rect px, string name, Color? fallback = null)
+        Image Picture(Sprite sprite, Rect px, string name, string artField, Color? fallback = null)
         {
             var area = Area(px, name);
             var img = area.gameObject.AddComponent<Image>();
             img.raycastTarget = false;
+            img.preserveAspect = true;
             if (sprite != null)
             {
                 UIFactory.SetSprite(img, sprite, Color.white);
@@ -211,22 +330,24 @@ namespace RamenTycoon.UI
             {
                 img.color = fallback ?? Color.clear; // 아이콘이 없으면 비워 둠
             }
+            UIArtSlot.Attach(img, artField, fallback ?? Color.clear);
             return img;
         }
 
-        void ImageButton(Rect px, Sprite sprite, Color fallback, string label, Color labelColor, float sizePx, Action click)
+        Button ImageButton(Rect px, Sprite sprite, string artField, Color fallback, string label, Color labelColor, float sizePx)
         {
             var area = Area(px, "Button_" + label);
             var img = area.gameObject.AddComponent<Image>();
             UIFactory.SetSprite(img, sprite, fallback);
             if (sprite == null) area.gameObject.AddComponent<UnityEngine.UI.Outline>().effectColor = Outline;
+            UIArtSlot.Attach(img, artField, fallback);
             var btn = area.gameObject.AddComponent<Button>();
             btn.targetGraphic = img;
-            btn.onClick.AddListener(() => click?.Invoke());
 
             var t = UIFactory.Text(area, "Label", label, Size(sizePx), labelColor, TextAnchor.MiddleCenter);
             UIFactory.Stretch(t.rectTransform);
             t.fontStyle = FontStyles.Bold;
+            return btn;
         }
 
         Slider CreateSlider(Rect track, Data.GameArtConfig art)
@@ -252,13 +373,16 @@ namespace RamenTycoon.UI
             back.rectTransform.anchorMin = new Vector2(0f, top);
             back.rectTransform.anchorMax = new Vector2(1f, bottom);
             back.rectTransform.offsetMin = back.rectTransform.offsetMax = Vector2.zero;
+            GameObject tanGo = null;
             if (art == null || art.settingsSliderTrack == null)
             {
-                var tan = UIFactory.Image(back.transform, "Inner", null, TrackTan);
+                var tan = UIFactory.Image(back.transform, "Inner (그림 없을 때만)", null, TrackTan);
                 UIFactory.Stretch(tan.rectTransform);
                 tan.rectTransform.offsetMin = new Vector2(5f, 5f);
                 tan.rectTransform.offsetMax = new Vector2(-5f, -5f);
+                tanGo = tan.gameObject;
             }
+            UIArtSlot.Attach(back, nameof(art.settingsSliderTrack), Outline, tanGo);
 
             // 채움
             var fillArea = UIFactory.Rect(area, "Fill Area");
@@ -266,6 +390,7 @@ namespace RamenTycoon.UI
             fillArea.anchorMax = new Vector2(1f - inX, inBottom);
             fillArea.offsetMin = fillArea.offsetMax = Vector2.zero;
             var fill = UIFactory.Image(fillArea, "Fill", art != null ? art.settingsSliderFill : null, FillRed);
+            UIArtSlot.Attach(fill, nameof(art.settingsSliderFill), FillRed);
             fill.rectTransform.anchorMin = Vector2.zero;
             fill.rectTransform.anchorMax = new Vector2(0f, 1f);
             fill.rectTransform.offsetMin = fill.rectTransform.offsetMax = Vector2.zero;
@@ -281,6 +406,7 @@ namespace RamenTycoon.UI
             handle.rectTransform.anchorMax = new Vector2(0f, 0.5f + 30.5f / h);
             handle.rectTransform.sizeDelta = new Vector2(45f * PanelWidth / W, 0f);
             if (art == null || art.settingsHandle == null) handle.gameObject.AddComponent<UnityEngine.UI.Outline>().effectColor = Outline;
+            UIArtSlot.Attach(handle, nameof(art.settingsHandle), new Color(0.99f, 0.94f, 0.82f));
 
             slider.fillRect = fill.rectTransform;
             slider.handleRect = handle.rectTransform;
@@ -289,15 +415,19 @@ namespace RamenTycoon.UI
         }
 
         /// <summary>창 배경 이미지가 없을 때: 갈색 테두리 + 제목 띠 + 크림색 줄 3개</summary>
-        void BuildFallbackBackground()
+        GameObject[] BuildFallbackBackground()
         {
-            var content = UIFactory.Image(panel, "Content", null, Cream);
+            var list = new System.Collections.Generic.List<GameObject>();
+            var content = UIFactory.Image(panel, "Content (그림 없을 때만)", null, Cream);
             UIFactory.AnchorTopLeft(content.rectTransform, new Rect(70f / W, 165f / H, 1243f / W, 570f / H));
+            list.Add(content.gameObject);
             foreach (var y in new[] { 198f, 320f, 440f })
             {
-                var row = UIFactory.Image(panel, "Row", null, RowCream);
+                var row = UIFactory.Image(panel, "Row (그림 없을 때만)", null, RowCream);
                 UIFactory.AnchorTopLeft(row.rectTransform, new Rect(100f / W, y / H, 1182f / W, 110f / H));
+                list.Add(row.gameObject);
             }
+            return list.ToArray();
         }
     }
 }

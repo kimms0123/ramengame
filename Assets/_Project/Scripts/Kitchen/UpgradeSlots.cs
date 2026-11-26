@@ -14,6 +14,9 @@ namespace RamenTycoon.Kitchen
     {
         public enum LockedMode { Hide, ShowLocked }
 
+        [Tooltip("업그레이드 창 항목(UpgradeData)의 id와 같게. 비우면 오브젝트 이름으로 추측 (StoveSlots → stove, TableSlots → table)")]
+        [SerializeField] string upgradeId;
+
         [Tooltip("켜지는 순서대로 넣는다. 첫 번째는 항상 켜져 있다.")]
         [SerializeField] GameObject[] slots;
 
@@ -24,11 +27,37 @@ namespace RamenTycoon.Kitchen
         [SerializeField] Key debugUpgradeKey = Key.None;
 
         public int Level { get; private set; }
+        public event System.Action Changed;
+
+        public string UpgradeId
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(upgradeId)) return upgradeId;
+                string n = name.ToLowerInvariant();
+                if (n.Contains("stove")) return "stove";
+                if (n.Contains("table")) return "table";
+                if (n.Contains("sink")) return "sink";
+                return n;
+            }
+        }
+
+        public static UpgradeSlots Find(string id)
+        {
+            foreach (var s in FindObjectsByType<UpgradeSlots>(FindObjectsInactive.Include))
+                if (s.UpgradeId == id) return s;
+            return null;
+        }
         public int MaxLevel => slots == null ? 0 : slots.Length;
         public bool IsMax => Level >= MaxLevel;
 
         // Station.Awake(색 준비)가 끝난 뒤에 적용해야 해서 Start에서 처리한다
-        void Start() => SetLevel(startLevel);
+        void Start()
+        {
+            // 이어하기면 저장된 단계로
+            var save = RamenTycoon.Core.SaveSystem.Pending;
+            SetLevel(save != null ? save.GetLevel(UpgradeId, startLevel) : startLevel);
+        }
 
         void Update()
         {
@@ -65,6 +94,7 @@ namespace RamenTycoon.Kitchen
                     if (station != null) station.SetLocked(!unlocked);
                 }
             }
+            Changed?.Invoke();
         }
     }
 }

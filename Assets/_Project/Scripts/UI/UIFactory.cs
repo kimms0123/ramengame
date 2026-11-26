@@ -32,7 +32,11 @@ namespace RamenTycoon.UI
             get
             {
                 var art = GameDatabase.Art;
-                if (art != null && art.uiFontAsset != null) return art.uiFontAsset;
+                if (art != null && art.uiFontAsset != null)
+                {
+                    if (preparedFont != art.uiFontAsset) PrepareFont(art.uiFontAsset);
+                    return art.uiFontAsset;
+                }
                 if (!warnedFont)
                 {
                     warnedFont = true;
@@ -42,9 +46,45 @@ namespace RamenTycoon.UI
             }
         }
 
+        static TMP_FontAsset preparedFont;
+
+        /// <summary>
+        /// 한글이 ㅁ로 깨지지 않게 폰트 에셋을 정리한다.
+        /// - Dynamic: 쓰는 글자를 그때그때 아틀라스에 추가
+        /// - Multi Atlas Textures: 아틀라스가 꽉 차면 새 장을 추가 (한글이 많으면 한 장으로 부족)
+        /// - 굵은 글씨용 폰트(Font Weights > Bold)에 없는 글자는 기본 폰트에서 가져오도록 Fallback 연결
+        /// </summary>
+        public static void PrepareFont(TMP_FontAsset font)
+        {
+            preparedFont = font;
+            if (font == null) return;
+            MakeDynamic(font);
+
+            var table = font.fontWeightTable;
+            if (table == null) return;
+            foreach (var pair in table)
+            {
+                foreach (var weighted in new[] { pair.regularTypeface, pair.italicTypeface })
+                {
+                    if (weighted == null || weighted == font) continue;
+                    MakeDynamic(weighted);
+                    if (weighted.fallbackFontAssetTable == null) weighted.fallbackFontAssetTable = new System.Collections.Generic.List<TMP_FontAsset>();
+                    if (!weighted.fallbackFontAssetTable.Contains(font)) weighted.fallbackFontAssetTable.Add(font);
+                }
+            }
+        }
+
+        static void MakeDynamic(TMP_FontAsset f)
+        {
+            if (f.sourceFontFile == null) return; // 원본 .ttf 연결이 없으면 동적으로 글자를 못 만든다
+            if (f.atlasPopulationMode != AtlasPopulationMode.Dynamic) f.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+            if (!f.isMultiAtlasTexturesEnabled) f.isMultiAtlasTexturesEnabled = true;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
         {
+            preparedFont = null;
             warnedFont = false;
             EscConsumedFrame = -1;
         }
@@ -242,8 +282,35 @@ namespace RamenTycoon.UI
             {
                 var child = t.GetChild(i);
                 child.SetParent(null, false);
-                UnityEngine.Object.Destroy(child.gameObject);
+                DestroySafe(child.gameObject);
             }
+        }
+
+        /// <summary>
+        /// 말풍선 아래 가운데 꼬리. 그림이 없으면 투명(나중에 GameArtConfig에 그림이 들어오면 자동으로 보임).
+        /// 레이아웃에서 빠지도록 ignoreLayout.
+        /// </summary>
+        public static Image BubbleTail(RectTransform bubble)
+        {
+            var art = GameDatabase.Art;
+            Sprite tail = art != null ? art.speechBubbleTail : null;
+            var img = Image(bubble, "Tail", tail, Color.clear);
+            img.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            var rt = img.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, 3f); // 말풍선 아래 테두리 한 줄을 덮어서 이어 보이게
+            rt.sizeDelta = tail != null ? new Vector2(tail.rect.width, tail.rect.height) : new Vector2(21f, 12f);
+            UIArtSlot.Attach(img, "speechBubbleTail", Color.clear);
+            return img;
+        }
+
+        /// <summary>Play 중이면 Destroy, 에디터(씬 만들기)에서는 DestroyImmediate</summary>
+        public static void DestroySafe(UnityEngine.Object obj)
+        {
+            if (obj == null) return;
+            if (Application.isPlaying) UnityEngine.Object.Destroy(obj);
+            else UnityEngine.Object.DestroyImmediate(obj);
         }
 
         // ───────── 월드 → UI 좌표 ─────────
