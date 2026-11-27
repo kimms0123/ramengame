@@ -269,6 +269,7 @@ namespace RamenTycoon.UI
             HideArrows();
             PlayerPrefs.SetInt(DoneKey, 1);
             PlayerPrefs.Save();
+            if (reason != "다시 시작") SaveSystem.MarkTutorialDone(); // 이어하기로 1일차를 다시 해도 안 나오게
         }
 
         /// <summary>다음 단계로. 지금 창을 닫고 잠깐 뒤에 새 창을 띄운다 (gap=false면 바로 바꿈)</summary>
@@ -342,6 +343,11 @@ namespace RamenTycoon.UI
                 {
                     Debug.Log($"[TutorialGuide] 튜토리얼은 1일차에만 나와요. 지금은 DAY {dm.Day} (이어하기로 시작함). " +
                               "새로 보려면 타이틀에서 시작하기를 두 번 누르거나, TutorialGuide ⋮ > 지금 튜토리얼 시작");
+                    return;
+                }
+                if (SaveSystem.TutorialDone)
+                {
+                    Debug.Log("[TutorialGuide] 이 게임에서 이미 튜토리얼을 끝내서 건너뛰어요. (새로 보려면 타이틀에서 시작하기)");
                     return;
                 }
                 if (showOnlyOnce && PlayerPrefs.GetInt(DoneKey, 0) == 1)

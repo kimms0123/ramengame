@@ -16,6 +16,8 @@ namespace RamenTycoon.Core
         public int coins;
         public float satisfaction;
         public List<UpgradeLevel> upgrades = new();
+        [Tooltip("튜토리얼을 끝냈거나 건너뛰었는지 (이어하기로 1일차를 다시 해도 튜토리얼이 안 나오게)")]
+        public bool tutorialDone;
         public string savedAt;
 
         public int GetLevel(string id, int fallback)
@@ -51,6 +53,9 @@ namespace RamenTycoon.Core
 
         /// <summary>타이틀에서 [이어하기]를 누르면 채워짐. 게임 씬의 DayManager·Economy·UpgradeSlots가 시작할 때 읽는다.</summary>
         public static SaveData Pending { get; private set; }
+
+        /// <summary>이번 게임에서 튜토리얼을 끝냈는지. 이어하기면 저장 파일 값, 새 게임이면 false</summary>
+        public static bool TutorialDone { get; private set; }
 
         /// <summary>마지막 자동 저장이 성공했는지 (정산 화면 표시용)</summary>
         public static bool LastSaveOk { get; private set; }
@@ -110,18 +115,35 @@ namespace RamenTycoon.Core
         public static bool PrepareContinue()
         {
             Pending = Peek();
+            TutorialDone = Pending != null && Pending.tutorialDone;
             return Pending != null;
         }
 
         /// <summary>[시작하기]: 새 게임</summary>
-        public static void PrepareNewGame() => Pending = null;
+        public static void PrepareNewGame()
+        {
+            Pending = null;
+            TutorialDone = false;
+        }
+
+        /// <summary>튜토리얼을 끝냄 → 지금 저장 파일에도 바로 기록 (다음 저장까지 기다리지 않음)</summary>
+        public static void MarkTutorialDone()
+        {
+            TutorialDone = true;
+            var data = Peek();
+            if (data != null && !data.tutorialDone)
+            {
+                data.tutorialDone = true;
+                Save(data);
+            }
+        }
 
         public static void ClearPending() => Pending = null;
 
         /// <summary>지금 게임 상태를 저장 데이터로 (nextDay = 이어하기 했을 때 시작할 날)</summary>
         public static SaveData Capture(int nextDay)
         {
-            var data = new SaveData { day = nextDay };
+            var data = new SaveData { day = nextDay, tutorialDone = TutorialDone };
             var eco = Economy.Instance;
             if (eco != null)
             {
@@ -141,6 +163,7 @@ namespace RamenTycoon.Core
         {
             Pending = null;
             LastSaveOk = false;
+            TutorialDone = false;
         }
     }
 }
